@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Smart ELO | Water Monitor</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;800&family=Sarabun:wght@400;500;600&family=Noto+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <style>
@@ -22,7 +22,60 @@
       --text:      #d0e8ff;
       --dim:       #4a6080;
       --glow:      rgba(0,180,255,0.35);
+      --shadow:    rgba(0,0,0,0.4);
     }
+
+    /* ── LIGHT MODE ── */
+    body.light {
+      --bg:        #eef4fb;
+      --panel:     #ffffff;
+      --panel2:    #f0f6ff;
+      --border:    rgba(0,120,200,0.18);
+      --accent:    #0077cc;
+      --accent2:   #00aa88;
+      --danger:    #d93025;
+      --warn:      #e6a000;
+      --ok:        #1a9e5c;
+      --text:      #1a2a3a;
+      --dim:       #7a96b0;
+      --glow:      rgba(0,120,200,0.25);
+      --shadow:    rgba(0,60,120,0.12);
+    }
+    body.light::before {
+      background-image:
+        linear-gradient(rgba(0,120,200,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,120,200,0.05) 1px, transparent 1px);
+    }
+    body.light .cctv-wrap img { filter: saturate(0.85) contrast(1.05); }
+    body.light #map-container { filter: saturate(0.9) brightness(1.0) hue-rotate(0deg); }
+    body.light .scanline { opacity: 0.4; }
+    body.light .topbar { box-shadow: 0 2px 12px var(--shadow); }
+    body.light .metric-card::after { background: radial-gradient(circle, rgba(0,120,200,0.08), transparent 70%); }
+
+    /* ── Theme toggle button ── */
+    .theme-toggle {
+      display: flex; align-items: center; gap: 6px;
+      cursor: pointer; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      border-radius: 20px; padding: 4px 10px 4px 6px;
+      transition: all 0.2s;
+      color: var(--dim);
+      font-family: 'Share Tech Mono', monospace; font-size: 0.62rem; letter-spacing: 1px;
+    }
+    .theme-toggle:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,180,255,0.06); }
+    .toggle-track {
+      width: 28px; height: 16px; border-radius: 8px;
+      background: var(--border); position: relative;
+      transition: background 0.25s; flex-shrink:0;
+      border: 1px solid var(--border);
+    }
+    body.light .toggle-track { background: var(--accent); }
+    .toggle-thumb {
+      position: absolute; top: 2px; left: 2px;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--dim); transition: transform 0.25s, background 0.25s;
+    }
+    body.light .toggle-thumb { transform: translateX(12px); background: #fff; }
 
     * { margin:0; padding:0; box-sizing:border-box; }
 
@@ -241,74 +294,128 @@
     .status-text.danger { color:var(--danger); }
     .status-since { font-family:'Share Tech Mono',monospace; font-size:0.65rem; color:var(--dim); margin-left:auto; }
 
-    /* ─── Alert log ─── */
-    .alert-panel {
+    /* ─── Sensor Log Table ─── */
+    .log-panel {
       background: var(--panel); border: 1px solid var(--border);
       border-radius: 0 0 12px 0;
-      flex:1; display:flex; flex-direction:column; overflow:hidden;
+      flex: 1;
+      display:flex; flex-direction:column; overflow:hidden;
+      min-height: 180px;
     }
-    .alert-header {
+    .log-header {
       display:flex; align-items:center; justify-content:space-between;
       padding: 10px 14px;
       border-bottom: 1px solid var(--border);
       background: rgba(255,255,255,0.02);
+      flex-shrink: 0;
+      gap: 8px;
+      flex-wrap: wrap;
     }
-    .alert-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.9rem; letter-spacing:2px; color:var(--text); }
-    .alert-count {
-      font-family:'Share Tech Mono',monospace; font-size:0.65rem;
-      background: rgba(255,59,59,0.15); color:var(--danger);
-      border:1px solid rgba(255,59,59,0.3); border-radius:10px; padding:1px 8px;
-    }
-    .alert-list { flex:1; overflow-y:auto; }
-    .alert-list::-webkit-scrollbar { width:3px; }
-    .alert-list::-webkit-scrollbar-track { background:transparent; }
-    .alert-list::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+    .log-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.9rem; letter-spacing:2px; color:var(--text); white-space:nowrap; }
 
-    .alert-item {
-      display:flex; align-items:center; gap:12px;
-      padding: 10px 14px;
-      border-bottom: 1px solid rgba(255,255,255,0.04);
-      cursor:pointer; transition: background 0.15s;
-      animation: slideIn 0.3s ease;
+    .log-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .interval-label { font-family:'Noto Sans Thai','Share Tech Mono',monospace; font-size:0.72rem; color:var(--dim); letter-spacing:0; white-space:nowrap; }
+    .interval-select {
+      font-family:'Noto Sans Thai','Share Tech Mono',monospace; font-size:0.72rem;
+      background: rgba(0,180,255,0.06); color:var(--accent);
+      border: 1px solid rgba(0,180,255,0.3); border-radius:4px;
+      padding: 3px 8px; cursor:pointer; outline:none;
+      -webkit-appearance: none; appearance: none;
+      padding-right: 22px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2300b4ff'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 6px center;
     }
-    @keyframes slideIn { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:none} }
-    .alert-item:hover { background: rgba(0,180,255,0.05); }
-    .alert-item.active { background: rgba(0,180,255,0.08); border-left: 2px solid var(--accent); }
-
-    .alert-thumb {
-      width:52px; height:38px; border-radius:5px; overflow:hidden; flex-shrink:0;
-      background: #0a1520; border:1px solid var(--border);
-      display:flex; align-items:center; justify-content:center;
-      font-size:1.2rem;
-    }
-    .alert-info { flex:1; min-width:0; }
-    .alert-type { font-family:'Rajdhani',sans-serif; font-weight:600; font-size:0.82rem; color:var(--text); }
-    .alert-type.danger { color:var(--danger); }
-    .alert-type.warn   { color:var(--warn); }
-    .alert-type.ok     { color:var(--ok); }
-    .alert-meta { font-family:'Share Tech Mono',monospace; font-size:0.6rem; color:var(--dim); margin-top:2px; }
-    .alert-num {
-      font-family:'Rajdhani',sans-serif; font-weight:700; font-size:1.5rem;
-      color:var(--dim); min-width:22px; text-align:right;
+    .interval-select option { background: #0d1520; color: #d0e8ff; }
+    .log-count-badge {
+      font-family:'Noto Sans Thai','Share Tech Mono',monospace; font-size:0.7rem;
+      background: rgba(0,180,255,0.08); color:var(--accent);
+      border:1px solid rgba(0,180,255,0.2); border-radius:10px; padding:2px 10px;
+      white-space:nowrap;
     }
 
-    /* ─── Bottom action bar ─── */
-    .action-bar {
-      display:grid; grid-template-columns: repeat(4, 1fr);
-      gap:1px; border-top:1px solid var(--border);
+    /* Language toggle */
+    .lang-toggle {
+      display:flex; border:1px solid var(--border); border-radius:6px; overflow:hidden; flex-shrink:0;
+    }
+    .lang-btn {
+      font-family:'Share Tech Mono',monospace; font-size:0.6rem; letter-spacing:1px;
+      padding:3px 9px; cursor:pointer; border:none; background:transparent;
+      color:var(--dim); transition:all 0.15s;
+    }
+    .lang-btn.active { background:rgba(0,180,255,0.15); color:var(--accent); }
+    .lang-btn:not(:last-child) { border-right:1px solid var(--border); }
+
+    .log-table-wrap { flex:1; overflow-y:auto; overflow-x:hidden; min-height:0; }
+    .log-table-wrap::-webkit-scrollbar { width:3px; }
+    .log-table-wrap::-webkit-scrollbar-track { background:transparent; }
+    .log-table-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+    .log-table {
+      width:100%; border-collapse:collapse;
+    }
+    .log-table thead tr {
+      position:sticky; top:0; z-index:2;
       background: var(--panel);
+      border-bottom: 1px solid var(--border);
     }
-    .action-btn {
-      display:flex; flex-direction:column; align-items:center; gap:4px;
-      padding: 10px 6px;
-      cursor:pointer; transition: background 0.15s, color 0.15s;
-      font-family:'Rajdhani',sans-serif; font-weight:600;
-      font-size:0.68rem; letter-spacing:1px; color:var(--dim);
-      border:none; background:none;
+    .log-table th {
+      padding: 8px 12px; text-align:left;
+      font-family:'Noto Sans Thai','Share Tech Mono',monospace;
+      font-size:0.72rem; color:var(--dim);
+      font-weight:600; letter-spacing:0.5px;
     }
-    .action-btn:hover { background: rgba(0,180,255,0.08); color:var(--accent); }
-    .action-btn.primary { background:rgba(0,180,255,0.15); color:var(--accent); border:1px solid rgba(0,180,255,0.3); }
-    .action-btn svg { width:18px; height:18px; }
+    .log-table th:last-child, .log-table td:last-child { text-align:center; }
+    .log-table tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      transition: background 0.12s;
+      animation: rowIn 0.25s ease;
+    }
+    @keyframes rowIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
+    .log-table tbody tr:hover { background: rgba(0,180,255,0.04); }
+    .log-table tbody tr.row-new { background: rgba(0,180,255,0.08); }
+    .log-table td {
+      padding: 8px 12px;
+      font-family:'Noto Sans Thai','Share Tech Mono',monospace;
+      font-size:0.78rem; color:var(--text);
+    }
+    .log-table td.td-time { color:var(--dim); font-size:0.72rem; font-family:'Share Tech Mono',monospace; }
+    .log-table td.td-level { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:1.05rem; }
+    .log-table td.td-level.ok     { color:var(--ok); }
+    .log-table td.td-level.warn   { color:var(--warn); }
+    .log-table td.td-level.danger { color:var(--danger); }
+    .td-status-pill {
+      display:inline-flex; align-items:center; gap:4px;
+      font-family:'Noto Sans Thai','Share Tech Mono',monospace;
+      font-size:0.72rem; padding:3px 9px; border-radius:10px;
+      letter-spacing:0;
+    }
+    .td-status-pill.ok     { background:rgba(0,230,118,0.12); color:var(--ok);     border:1px solid rgba(0,230,118,0.25); }
+    .td-status-pill.warn   { background:rgba(255,183,0,0.12);  color:var(--warn);   border:1px solid rgba(255,183,0,0.25); }
+    .td-status-pill.danger { background:rgba(255,59,59,0.12);  color:var(--danger); border:1px solid rgba(255,59,59,0.25); }
+    .pill-dot { width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0; }
+
+    .log-footer {
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 8px 12px;
+      border-top: 1px solid var(--border);
+      background: rgba(255,255,255,0.01);
+      flex-shrink:0; gap:6px;
+    }
+    .log-footer-info {
+      font-family:'Noto Sans Thai','Share Tech Mono',monospace;
+      font-size:0.7rem; color:var(--dim); letter-spacing:0;
+    }
+    .log-action-btn {
+      display:flex; align-items:center; gap:5px;
+      font-family:'Share Tech Mono',monospace; font-size:0.62rem; letter-spacing:1px;
+      padding:5px 12px; border-radius:4px; cursor:pointer; border:none;
+      transition: all 0.15s;
+    }
+    .log-action-btn.export { background:rgba(0,180,255,0.1); color:var(--accent); border:1px solid rgba(0,180,255,0.25); }
+    .log-action-btn.export:hover { background:rgba(0,180,255,0.2); }
+    .log-action-btn.clear  { background:rgba(255,59,59,0.08); color:var(--danger); border:1px solid rgba(255,59,59,0.2); }
+    .log-action-btn.clear:hover  { background:rgba(255,59,59,0.16); }
+    .log-action-btn svg { width:12px;height:12px; }
 
     /* ─── Map panel ─── */
     .map-panel {
@@ -400,12 +507,14 @@
         padding-bottom: 72px; /* space for bottom nav */
       }
 
-      /* CCTV full width on top */
+      /* CCTV full width on top — taller to reduce dead space */
       .cctv-panel {
         grid-row: auto;
         border-radius: 12px;
         margin: 0;
-        height: 280px;
+        height: 52vw; /* aspect-ratio-friendly: ~52% of viewport width */
+        min-height: 260px;
+        max-height: 380px;
       }
       .cctv-wrap { flex: 1; }
 
@@ -427,7 +536,7 @@
       .chart-panel { border-radius: 10px; border: 1px solid var(--border); }
       .chart-canvas-wrap { height: 130px; }
 
-      .alert-panel { border-radius: 10px; border: 1px solid var(--border); max-height: 320px; }
+      .log-panel { border-radius: 10px; border: 1px solid var(--border); max-height: 340px; }
     }
 
     /* ── Mobile portrait (≤480px) ── */
@@ -438,7 +547,7 @@
 
       .main { padding: 8px; gap: 6px; padding-bottom: 76px; }
 
-      .cctv-panel { height: 220px; }
+      .cctv-panel { height: 56vw; min-height: 220px; max-height: 320px; }
       .cctv-header { padding: 8px 12px; }
       .cam-name { font-size: 0.85rem; }
 
@@ -504,14 +613,23 @@
     <div class="logo-ring"><span></span></div>
     <div>
       <div class="topbar-title">Smart ELO Station</div>
-      <div class="topbar-sub">FLOOD MONITORING SYSTEM · NODE-RED CLOUD</div>
+      <div class="topbar-sub" id="lbl-sub">FLOOD MONITORING SYSTEM · NODE-RED CLOUD</div>
     </div>
   </div>
   <div class="topbar-right">
     <div class="sys-status">
-      <span class="dot-live"></span>SYSTEM ONLINE
+      <span class="dot-live"></span><span id="lbl-online">SYSTEM ONLINE</span>
     </div>
     <div class="topbar-time" id="clock">--:--:--</div>
+    <!-- Language Toggle -->
+    <div class="lang-toggle" style="border-color:var(--border);">
+      <button class="lang-btn" id="lang-th-btn" onclick="setLang('th')">TH</button>
+      <button class="lang-btn active" id="lang-en-btn" onclick="setLang('en')">EN</button>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
+      <div class="toggle-track"><div class="toggle-thumb"></div></div>
+      <span id="theme-label">DARK</span>
+    </button>
   </div>
 </header>
 
@@ -522,8 +640,8 @@
   <div class="cctv-panel">
     <div class="cctv-header">
       <div>
-        <div class="cam-label">CAMERA FEED</div>
-        <div class="cam-name">Station Camera-01</div>
+        <div class="cam-label" id="lbl-camera-feed">CAMERA FEED</div>
+        <div class="cam-name" id="lbl-cam-name">Station Camera-01</div>
       </div>
       <div class="cam-badge" id="frame-counter">FRAME 0/--</div>
     </div>
@@ -542,7 +660,7 @@
     <div class="scrubber-area">
       <div class="scrubber-bar"><div class="scrubber-fill" id="scrubber"></div></div>
       <div class="scrubber-info">
-        <span id="scrubber-left">LIVE</span>
+        <span id="scrubber-left" id="lbl-live">LIVE</span>
         <span id="update-ts">Last update: --</span>
       </div>
     </div>
@@ -554,13 +672,13 @@
     <!-- METRICS -->
     <div class="metrics-row mobile-section visible" id="sec-metrics">
       <div class="metric-card level">
-        <div class="m-label">Water Level</div>
+        <div class="m-label" id="lbl-water-level">Water Level</div>
         <div class="m-value" id="water-level">--</div>
-        <div class="m-unit">CENTIMETERS</div>
+        <div class="m-unit" id="lbl-centimeters">CENTIMETERS</div>
         <div class="m-bar"><div class="m-fill" id="water-bar"></div></div>
       </div>
       <div class="metric-card status">
-        <div class="m-label">Station Status</div>
+        <div class="m-label" id="lbl-station-status">Station Status</div>
         <div class="m-value" style="font-size:1.6rem; margin-top:4px;" id="station-icon">🟢</div>
         <div class="m-unit" id="station-label">NORMAL</div>
         <div class="m-bar"><div class="m-fill" id="status-bar"></div></div>
@@ -579,7 +697,7 @@
     <!-- MAP -->
     <div class="map-panel mobile-section" id="sec-map">
       <div class="map-header">
-        <div class="map-title">STATION LOCATION</div>
+        <div class="map-title" id="lbl-station-location">STATION LOCATION</div>
         <div class="map-coords-badge">14.5832°N 100.9894°E</div>
       </div>
       <div id="map-container"></div>
@@ -588,7 +706,7 @@
     <!-- HISTORY CHART -->
     <div class="chart-panel mobile-section" id="sec-chart">
       <div class="chart-header">
-        <div class="chart-title">WATER LEVEL HISTORY</div>
+        <div class="chart-title" id="lbl-chart-title">WATER LEVEL HISTORY</div>
         <div class="chart-range-btns">
           <button class="range-btn active" onclick="setRange('1h',this)">1H</button>
           <button class="range-btn" onclick="setRange('6h',this)">6H</button>
@@ -603,46 +721,68 @@
       <div class="chart-stats">
         <div class="chart-stat">
           <div class="chart-stat-val" id="stat-min">--</div>
-          <div class="chart-stat-lbl">MIN cm</div>
+          <div class="chart-stat-lbl" id="lbl-min-cm">MIN cm</div>
         </div>
         <div class="chart-stat">
           <div class="chart-stat-val" id="stat-avg">--</div>
-          <div class="chart-stat-lbl">AVG cm</div>
+          <div class="chart-stat-lbl" id="lbl-avg-cm">AVG cm</div>
         </div>
         <div class="chart-stat">
           <div class="chart-stat-val" id="stat-max">--</div>
-          <div class="chart-stat-lbl">MAX cm</div>
+          <div class="chart-stat-lbl" id="lbl-max-cm">MAX cm</div>
         </div>
       </div>
     </div>
 
-    <!-- ALERT LOG -->
-    <div class="alert-panel mobile-section" id="sec-log">
-      <div class="alert-header">
-        <div class="alert-title">EVENT LOG</div>
-        <div class="alert-count" id="alert-count">0 EVENTS</div>
+    <!-- SENSOR LOG TABLE -->
+    <div class="log-panel mobile-section" id="sec-log">
+      <div class="log-header">
+        <div class="log-title" id="lbl-sensor-log">SENSOR LOG</div>
+        <div class="log-controls">
+          <span class="interval-label" id="lbl-show-every">Show every</span>
+          <select class="interval-select" id="interval-select" onchange="changeInterval(this.value)">
+            <option value="1"    data-th="1 นาที"      data-en="1 min"  selected>1 min</option>
+            <option value="5"    data-th="5 นาที"      data-en="5 min">5 min</option>
+            <option value="15"   data-th="15 นาที"     data-en="15 min">15 min</option>
+            <option value="30"   data-th="30 นาที"     data-en="30 min">30 min</option>
+            <option value="60"   data-th="1 ชั่วโมง"  data-en="1 hr">1 hr</option>
+            <option value="360"  data-th="6 ชั่วโมง"  data-en="6 hr">6 hr</option>
+            <option value="720"  data-th="12 ชั่วโมง" data-en="12 hr">12 hr</option>
+            <option value="1440" data-th="1 วัน"       data-en="1 day">1 day</option>
+          </select>
+          <div class="log-count-badge" id="log-count">0 records</div>
+
+        </div>
       </div>
-      <div class="alert-list" id="alert-list">
-        <!-- populated by JS -->
+
+      <div class="log-table-wrap">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th id="th-datetime">Date / Time</th>
+              <th id="th-level">Level (cm)</th>
+              <th id="th-status">Status</th>
+            </tr>
+          </thead>
+          <tbody id="log-tbody">
+            <tr><td colspan="4" style="text-align:center;padding:24px;color:var(--dim);font-size:0.75rem;" id="log-empty-msg">Waiting for sensor data...</td></tr>
+          </tbody>
+        </table>
       </div>
-      <!-- ACTION BAR -->
-      <div class="action-bar">
-        <button class="action-btn" onclick="exportLog()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          EXPORT
-        </button>
-        <button class="action-btn primary" onclick="callAuthority()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.5a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.18a16 16 0 006 6l1.27-.78a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-          CALL AUTH
-        </button>
-        <button class="action-btn" onclick="switchCamera()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-          SWITCH CAM
-        </button>
-        <button class="action-btn" onclick="clearAlerts()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          CLEAR
-        </button>
+
+      <div class="log-footer">
+        <div class="log-footer-info" id="log-next-tick">Next update: --</div>
+        <div style="display:flex;gap:6px;">
+          <button class="log-action-btn export" onclick="exportLog()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            EXPORT CSV
+          </button>
+          <button class="log-action-btn clear" onclick="clearLog()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+            <span id="lbl-clear">CLEAR</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -659,13 +799,14 @@
   const T_MAX    = 200;
 
   let frameCount = 0;
-  let events = [];
+  let currentLevel = null;
 
   // Clock
   function updateClock() {
     const now = new Date();
     document.getElementById('clock').textContent = now.toLocaleTimeString('th-TH',{hour12:false});
     document.getElementById('hud-time').textContent = now.toTimeString().slice(0,8);
+    tickLog(currentLevel);
   }
   setInterval(updateClock, 1000);
   updateClock();
@@ -711,40 +852,257 @@
     sb.style.background = s.color;
   }
 
-  function addEvent(level) {
-    const s = getStatus(level);
-    if (s.cls === 'ok') return; // Only log non-normal events
-    const ev = {
-      type: s.cls === 'danger' ? 'FLOOD CRITICAL' : 'LEVEL WARNING',
-      cls: s.cls,
-      level, time: new Date().toLocaleTimeString('th-TH',{hour12:false}),
-      date: new Date().toLocaleDateString('th-TH'),
-      icon: s.cls === 'danger' ? '🌊' : '⚠️',
-    };
-    events.unshift(ev);
-    if (events.length > 20) events.pop();
-    renderEvents();
+  // ══════════════════════════════════════
+  // GLOBAL LANGUAGE SYSTEM
+  // ══════════════════════════════════════
+  let currentLang = 'en';
+
+  const i18n = {
+    en: {
+      sub:          'FLOOD MONITORING SYSTEM · NODE-RED CLOUD',
+      online:       'SYSTEM ONLINE',
+      themeDark:    'DARK',
+      themeLight:   'LIGHT',
+      cameraFeed:   'CAMERA FEED',
+      camName:      'Station Camera-01',
+      live:         'LIVE',
+      lastUpdatePfx:'Last update: ',
+      waterLevel:   'Water Level',
+      centimeters:  'CENTIMETERS',
+      stationStatus:'Station Status',
+      statusOk:     'WATER LEVEL NORMAL',
+      statusWarn:   'WARNING: RISING WATER',
+      statusDanger: 'CRITICAL FLOOD ALERT',
+      stationLoc:   'STATION LOCATION',
+      chartTitle:   'WATER LEVEL HISTORY',
+      minCm:        'MIN cm',
+      avgCm:        'AVG cm',
+      maxCm:        'MAX cm',
+      sensorLog:    'SENSOR LOG',
+      showEvery:    'Show every',
+      records:      'records',
+      datetime:     'Date / Time',
+      level:        'Level (cm)',
+      status:       'Status',
+      nextUpdate:   'Next update:',
+      waiting:      'Waiting for sensor data...',
+      clear:        'CLEAR',
+      statusNormal: 'NORMAL',
+      statusWarning:'WARNING',
+      statusCrit:   'CRITICAL',
+      confirmClear: 'Clear all records?',
+      bnavData:     'DATA',
+      bnavMap:      'MAP',
+      bnavGraph:    'GRAPH',
+      bnavLog:      'LOG',
+      options: ['1 min','5 min','15 min','30 min','1 hr','6 hr','12 hr','1 day'],
+    },
+    th: {
+      sub:          'ระบบติดตามน้ำท่วม · NODE-RED CLOUD',
+      online:       'ระบบออนไลน์',
+      themeDark:    'มืด',
+      themeLight:   'สว่าง',
+      cameraFeed:   'กล้อง CCTV',
+      camName:      'กล้องสถานี-01',
+      live:         'สด',
+      lastUpdatePfx:'อัปเดตล่าสุด: ',
+      waterLevel:   'ระดับน้ำ',
+      centimeters:  'เซนติเมตร',
+      stationStatus:'สถานะสถานี',
+      statusOk:     'ระดับน้ำปกติ',
+      statusWarn:   'คำเตือน: น้ำกำลังสูงขึ้น',
+      statusDanger: 'เตือนภัย: น้ำท่วม',
+      stationLoc:   'ตำแหน่งสถานี',
+      chartTitle:   'กราฟระดับน้ำ',
+      minCm:        'ต่ำสุด cm',
+      avgCm:        'เฉลี่ย cm',
+      maxCm:        'สูงสุด cm',
+      sensorLog:    'บันทึกระดับน้ำ',
+      showEvery:    'แสดงทุก',
+      records:      'รายการ',
+      datetime:     'วันที่ / เวลา',
+      level:        'ระดับน้ำ (cm)',
+      status:       'สถานะ',
+      nextUpdate:   'อัปเดตถัดไป:',
+      waiting:      'รอข้อมูลจาก sensor...',
+      clear:        'ล้างข้อมูล',
+      statusNormal: 'ปกติ',
+      statusWarning:'เฝ้าระวัง',
+      statusCrit:   'วิกฤต',
+      confirmClear: 'ล้างข้อมูลทั้งหมด?',
+      bnavData:     'ข้อมูล',
+      bnavMap:      'แผนที่',
+      bnavGraph:    'กราฟ',
+      bnavLog:      'บันทึก',
+      options: ['1 นาที','5 นาที','15 นาที','30 นาที','1 ชั่วโมง','6 ชั่วโมง','12 ชั่วโมง','1 วัน'],
+    }
+  };
+
+  function setLang(lang) {
+    currentLang = lang;
+    document.querySelectorAll('.lang-btn').forEach(b => {
+      b.classList.toggle('active',
+        (lang === 'th' && b.textContent === 'TH') ||
+        (lang === 'en' && b.textContent === 'EN')
+      );
+    });
+    applyLang();
+    renderLogTable();
   }
 
-  function renderEvents() {
-    const list = document.getElementById('alert-list');
-    document.getElementById('alert-count').textContent = events.length + ' EVENTS';
-    if (events.length === 0) {
-      list.innerHTML = '<div style="padding:20px;text-align:center;font-family:\'Share Tech Mono\',monospace;font-size:0.7rem;color:#334466;letter-spacing:1px;">NO EVENTS RECORDED</div>';
+  function applyLang() {
+    const t = i18n[currentLang];
+    const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+
+    set('lbl-sub',              t.sub);
+    set('lbl-online',           t.online);
+    set('theme-label',          document.body.classList.contains('light') ? t.themeLight : t.themeDark);
+    set('lbl-camera-feed',      t.cameraFeed);
+    set('lbl-cam-name',         t.camName);
+    set('scrubber-left',        t.live);
+    set('lbl-water-level',      t.waterLevel);
+    set('lbl-centimeters',      t.centimeters);
+    set('lbl-station-status',   t.stationStatus);
+    set('lbl-station-location', t.stationLoc);
+    set('lbl-chart-title',      t.chartTitle);
+    set('lbl-min-cm',           t.minCm);
+    set('lbl-avg-cm',           t.avgCm);
+    set('lbl-max-cm',           t.maxCm);
+    set('lbl-sensor-log',       t.sensorLog);
+    set('lbl-show-every',       t.showEvery);
+    set('th-datetime',          t.datetime);
+    set('th-level',             t.level);
+    set('th-status',            t.status);
+    set('lbl-clear',            t.clear);
+    set('lbl-bnav-data',        t.bnavData);
+    set('lbl-bnav-map',         t.bnavMap);
+    set('lbl-bnav-graph',       t.bnavGraph);
+    set('lbl-bnav-log',         t.bnavLog);
+
+    // Count badge
+    set('log-count', logRecords.length + ' ' + t.records);
+
+    // Empty message
+    const emptyMsg = document.getElementById('log-empty-msg');
+    if (emptyMsg) emptyMsg.textContent = t.waiting;
+
+    // Dropdown options
+    const sel = document.getElementById('interval-select');
+    ['1','5','15','30','60','360','720','1440'].forEach((v, i) => {
+      const opt = sel && sel.querySelector('option[value="' + v + '"]');
+      if (opt) opt.textContent = t.options[i];
+    });
+
+    // Status bar text (if level is known)
+    if (currentLevel !== null) {
+      const s = getStatus(currentLevel);
+      const sMap = { ok: t.statusOk, warn: t.statusWarn, danger: t.statusDanger };
+      set('status-text', sMap[s.cls]);
+      const stMap = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
+      set('station-label', stMap[s.cls]);
+    }
+
+    // Last update timestamp prefix
+    const tsEl = document.getElementById('update-ts');
+    if (tsEl) {
+      const raw = tsEl.getAttribute('data-time') || '';
+      tsEl.textContent = raw ? t.lastUpdatePfx + raw : t.lastUpdatePfx + '--';
+    }
+
+    updateNextTick();
+  }
+
+  // ─── SENSOR LOG TABLE ───
+  let logIntervalMinutes = 1;
+  let logRecords = [];
+  let logCountdown = logIntervalMinutes * 60;
+
+  function changeInterval(val) {
+    logIntervalMinutes = parseInt(val);
+    logCountdown = logIntervalMinutes * 60;
+    updateNextTick();
+  }
+
+  function updateNextTick() {
+    const t = i18n[currentLang];
+    const mins = Math.floor(logCountdown / 60);
+    const secs = logCountdown % 60;
+    document.getElementById('log-next-tick').textContent =
+      `${t.nextUpdate} ${mins > 0 ? mins + 'm ' : ''}${String(secs).padStart(2,'0')}s`;
+  }
+
+  function tickLog(level) {
+    if (level === null) return;
+    logCountdown--;
+    if (logCountdown <= 0) {
+      addLogRecord(level);
+      logCountdown = logIntervalMinutes * 60;
+    }
+    updateNextTick();
+  }
+
+  function addLogRecord(level) {
+    const now = new Date();
+    const s = getStatus(level);
+    logRecords.unshift({
+      ts: now,
+      dateStr: now.toLocaleDateString('th-TH', {day:'2-digit', month:'2-digit', year:'2-digit'}),
+      timeStr: now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false}),
+      level, cls: s.cls,
+    });
+    if (logRecords.length > 200) logRecords.pop();
+    renderLogTable();
+  }
+
+  function renderLogTable() {
+    const t = i18n[currentLang];
+    const tbody = document.getElementById('log-tbody');
+    const countEl = document.getElementById('log-count');
+    countEl.textContent = logRecords.length + ' ' + t.records;
+
+    if (logRecords.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" id="log-empty-msg" style="text-align:center;padding:24px;color:var(--dim);font-size:0.75rem;">${t.waiting}</td></tr>`;
       return;
     }
-    list.innerHTML = events.map((ev, i) => `
-      <div class="alert-item ${i===0?'active':''}">
-        <div class="alert-thumb">${ev.icon}</div>
-        <div class="alert-info">
-          <div class="alert-type ${ev.cls}">${ev.type}</div>
-          <div class="alert-meta">STATION-01 · ${ev.time} · ${ev.level}cm</div>
-        </div>
-        <div class="alert-num">${i+1}</div>
-      </div>
+
+    const statusLabel = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
+    tbody.innerHTML = logRecords.map((r, i) => `
+      <tr class="${i === 0 ? 'row-new' : ''}">
+        <td class="td-time">${logRecords.length - i}</td>
+        <td class="td-time">${r.dateStr} ${r.timeStr}</td>
+        <td class="td-level ${r.cls}">${r.level}</td>
+        <td><span class="td-status-pill ${r.cls}"><span class="pill-dot"></span>${statusLabel[r.cls] || r.cls}</span></td>
+      </tr>
     `).join('');
   }
-  renderEvents(); // initial empty state
+
+  function initLogFirstRecord(level) {
+    if (logRecords.length === 0) addLogRecord(level);
+  }
+
+  function exportLog() {
+    const t = i18n[currentLang];
+    const header = `#,${t.datetime},${t.level},${t.status}\n`;
+    const rows = [...logRecords].reverse().map((r, i) =>
+      `${i+1},"${r.dateStr} ${r.timeStr}",${r.level},${r.cls}`
+    ).join('\n');
+    const blob = new Blob(['\uFEFF' + header + rows], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `sensor-log-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  }
+
+  function clearLog() {
+    const t = i18n[currentLang];
+    if (!confirm(t.confirmClear)) return;
+    logRecords = [];
+    renderLogTable();
+  }
+
+  function switchCamera() { alert('📷 No additional cameras configured.'); }
+  function callAuthority() { alert('📞 Contacting Flood Control Authority...'); }
+  function clearAlerts() { clearLog(); }
 
   // Fetch water level
   async function fetchWater() {
@@ -752,9 +1110,10 @@
       const res  = await fetch(API_WATER);
       const data = await res.json();
       const lvl  = parseFloat(data.data.water_level) || 0;
+      currentLevel = lvl;
       updateUI(lvl);
-      addEvent(lvl);
       pushToChart(lvl);
+      initLogFirstRecord(lvl);
     } catch(e) {
       console.warn('Water fetch failed:', e);
     }
@@ -769,32 +1128,17 @@
         document.getElementById('cctv-frame').src = data.image_base64;
         frameCount++;
         document.getElementById('frame-counter').textContent = `FRAME ${frameCount}/∞`;
-        document.getElementById('update-ts').textContent = 'Last update: ' + new Date().toLocaleTimeString('th-TH',{hour12:false});
+        const _t = new Date().toLocaleTimeString('th-TH',{hour12:false});
+        const _tsEl = document.getElementById('update-ts');
+        _tsEl.setAttribute('data-time', _t);
+        _tsEl.textContent = i18n[currentLang].lastUpdatePfx + _t;
       }
     } catch(e) {
       console.warn('CCTV fetch failed:', e);
     }
   }
 
-  function exportLog() {
-    const txt = events.map(e => `[${e.date} ${e.time}] ${e.type} — Level: ${e.level}cm`).join('\n');
-    const blob = new Blob([txt || 'No events.'], {type:'text/plain'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = 'event-log.txt'; a.click();
-  }
-
-  function callAuthority() {
-    alert('📞 Contacting Flood Control Authority...');
-  }
-
-  function switchCamera() {
-    alert('📷 No additional cameras configured.');
-  }
-
-  function clearAlerts() {
-    events = [];
-    renderEvents();
-  }
+  function clearAlerts() { clearLog(); }
 
   // ─── MAP ───
   // พิกัด Smart ELO Station (แก้ lat/lng ตามตำแหน่งจริง)
@@ -907,6 +1251,15 @@
     ctx.scale(devicePixelRatio, devicePixelRatio);
     const W = wrap.clientWidth, H = wrap.clientHeight;
 
+    // Dynamic colors based on theme
+    const isLight = document.body.classList.contains('light');
+    const accentColor  = isLight ? '#0077cc' : '#00b4ff';
+    const accent2Color = isLight ? '#00aa88' : '#00ffcc';
+    const gridColor    = isLight ? 'rgba(0,120,200,0.08)' : 'rgba(0,180,255,0.06)';
+    const axisColor    = isLight ? '#7a96b0' : '#4a6080';
+    const areaTop      = isLight ? 'rgba(0,120,200,0.15)' : 'rgba(0,180,255,0.25)';
+    const areaBot      = isLight ? 'rgba(0,120,200,0.02)' : 'rgba(0,180,255,0.04)';
+
     const vals   = data.map(d => d.value);
     const minVal = Math.min(...vals);
     const maxVal = Math.max(...vals);
@@ -939,13 +1292,13 @@
 
     // Y-axis gridlines
     ctx.save();
-    ctx.strokeStyle = 'rgba(0,180,255,0.06)';
+    ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
     for (let i = 0; i <= 4; i++) {
       const y = pad.top + (i / 4) * gH;
       ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
       const lbl = Math.round(maxVal - (i / 4) * range);
-      ctx.fillStyle = '#4a6080';
+      ctx.fillStyle = axisColor;
       ctx.font = `${8}px Share Tech Mono,monospace`;
       ctx.textAlign = 'right';
       ctx.fillText(lbl, pad.left - 4, y + 3);
@@ -954,8 +1307,8 @@
 
     // Area fill
     const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + gH);
-    grad.addColorStop(0,   'rgba(0,180,255,0.25)');
-    grad.addColorStop(0.6, 'rgba(0,180,255,0.04)');
+    grad.addColorStop(0,   areaTop);
+    grad.addColorStop(0.6, areaBot);
     grad.addColorStop(1,   'transparent');
     ctx.beginPath();
     ctx.moveTo(toX(0), toY(data[0].value));
@@ -981,8 +1334,8 @@
       ctx.bezierCurveTo(cx, y0, cx, y1, x1, y1);
     }
     const lineGrad = ctx.createLinearGradient(pad.left, 0, W - pad.right, 0);
-    lineGrad.addColorStop(0, '#00b4ff');
-    lineGrad.addColorStop(1, '#00ffcc');
+    lineGrad.addColorStop(0, accentColor);
+    lineGrad.addColorStop(1, accent2Color);
     ctx.strokeStyle = lineGrad;
     ctx.lineWidth = 2;
     ctx.lineJoin = 'round';
@@ -991,9 +1344,9 @@
     // Last point dot + glow
     const lx = toX(data.length - 1), ly = toY(data[data.length - 1].value);
     ctx.save();
-    ctx.shadowColor = '#00b4ff'; ctx.shadowBlur = 10;
+    ctx.shadowColor = accentColor; ctx.shadowBlur = 10;
     ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI * 2);
-    ctx.fillStyle = '#00ffcc'; ctx.fill();
+    ctx.fillStyle = accent2Color; ctx.fill();
     ctx.restore();
 
     // X-axis labels (show ~5 evenly spaced)
@@ -1021,6 +1374,24 @@
     historyData.push({ time: now, value: level });
     if (historyData.length > 60) historyData.shift();
     renderChart(historyData);
+  }
+
+  // ─── THEME TOGGLE ───
+  function toggleTheme() {
+    const isLight = document.body.classList.toggle('light');
+    const t = i18n[currentLang];
+    document.getElementById('theme-label').textContent = isLight ? t.themeLight : t.themeDark;
+    localStorage.setItem('elo-theme', isLight ? 'light' : 'dark');
+    // Re-render chart with new colors
+    if (historyData.length) setTimeout(() => renderChart(historyData), 50);
+  }
+  // Restore saved preference
+  if (localStorage.getItem('elo-theme') === 'light') {
+    document.body.classList.add('light');
+    document.addEventListener('DOMContentLoaded', () => {
+      const lbl = document.getElementById('theme-label');
+      if (lbl) lbl.textContent = 'LIGHT';
+    });
   }
 
   // ─── MOBILE TAB SWITCHING ───
@@ -1062,6 +1433,7 @@
   });
 
   // Init
+  applyLang();
   fetchWater();
   fetchCCTV();
   fetchHistory();
