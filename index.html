@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart ELO | Water Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <style>
+    :root {
+      --bg:        #080d14;
+      --panel:     #0d1520;
+      --panel2:    #111b2a;
+      --border:    rgba(0,180,255,0.12);
+      --accent:    #00b4ff;
+      --accent2:   #00ffcc;
+      --danger:    #ff3b3b;
+      --warn:      #ffb700;
+      --ok:        #00e676;
+      --text:      #d0e8ff;
+      --dim:       #4a6080;
+      --glow:      rgba(0,180,255,0.35);
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Exo 2', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── Background grid ─── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,180,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,180,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── Top bar ─── */
+    .topbar {
+      position: relative; z-index:10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 24px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 2px 20px rgba(0,0,0,0.5);
+    }
+    .topbar-left { display:flex; align-items:center; gap:14px; }
+    .logo-ring {
+      width:36px; height:36px; border-radius:50%;
+      border: 2px solid var(--accent);
+      box-shadow: 0 0 12px var(--glow);
+      display:flex; align-items:center; justify-content:center;
+      animation: pulse-ring 2s ease-in-out infinite;
+    }
+    .logo-ring span { width:10px;height:10px;border-radius:50%;background:var(--accent); display:block; }
+    @keyframes pulse-ring {
+      0%,100% { box-shadow: 0 0 8px var(--glow); }
+      50%      { box-shadow: 0 0 20px var(--accent), 0 0 40px rgba(0,180,255,0.2); }
+    }
+    .topbar-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:1.2rem; letter-spacing:3px; color: var(--accent); text-transform:uppercase; }
+    .topbar-sub   { font-family:'Share Tech Mono',monospace; font-size:0.65rem; color:var(--dim); letter-spacing:2px; }
+
+    .topbar-right { display:flex; align-items:center; gap:20px; }
+    .topbar-time  { font-family:'Share Tech Mono',monospace; font-size:0.8rem; color:var(--accent2); letter-spacing:1px; }
+    .sys-status   { display:flex; align-items:center; gap:6px; font-size:0.72rem; color:var(--ok); letter-spacing:1px; }
+    .dot-live { width:7px;height:7px;border-radius:50%;background:var(--ok); box-shadow:0 0 8px var(--ok); animation: blink 1.2s step-start infinite; }
+    @keyframes blink { 50% { opacity:0; } }
+
+    /* ─── Main grid ─── */
+    .main {
+      position:relative; z-index:1;
+      display: grid;
+      grid-template-columns: 1fr 480px;
+      grid-template-rows: auto auto;
+      gap: 0;
+      padding: 16px;
+      height: calc(100vh - 57px);
+    }
+
+    /* ─── CCTV Panel (left) ─── */
+    .cctv-panel {
+      grid-row: 1 / 3;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px 0 0 12px;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      margin-right: 1px;
+    }
+    .cctv-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,180,255,0.04);
+    }
+    .cam-label { font-family:'Share Tech Mono',monospace; font-size:0.8rem; color:var(--dim); letter-spacing:2px; }
+    .cam-name  { font-family:'Rajdhani',sans-serif; font-weight:600; font-size:1rem; color:var(--text); }
+    .cam-badge {
+      font-family:'Share Tech Mono',monospace; font-size:0.65rem;
+      background: rgba(0,180,255,0.1); color:var(--accent);
+      border: 1px solid rgba(0,180,255,0.3);
+      padding: 2px 10px; border-radius:4px; letter-spacing:1px;
+    }
+    .cctv-wrap {
+      flex:1; position:relative; background:#000; overflow:hidden;
+    }
+    .cctv-wrap img#cctv-frame {
+      width:100%; height:100%; object-fit:cover; display:block;
+      filter: saturate(0.6) contrast(1.1);
+    }
+    /* Scanline overlay */
+    .scanline {
+      position:absolute; inset:0; pointer-events:none;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px, transparent 3px,
+        rgba(0,0,0,0.12) 3px, rgba(0,0,0,0.12) 4px
+      );
+      animation: scan 6s linear infinite;
+    }
+    @keyframes scan {
+      from { background-position: 0 0; }
+      to   { background-position: 0 100%; }
+    }
+    /* Corner marks */
+    .corner { position:absolute; width:20px; height:20px; border-color: var(--accent); border-style:solid; opacity:0.8; }
+    .c-tl { top:8px;left:8px; border-width:2px 0 0 2px; }
+    .c-tr { top:8px;right:8px; border-width:2px 2px 0 0; }
+    .c-bl { bottom:8px;left:8px; border-width:0 0 2px 2px; }
+    .c-br { bottom:8px;right:8px; border-width:0 2px 2px 0; }
+
+    .hud-overlay {
+      position:absolute; bottom:0; left:0; right:0;
+      background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+      padding: 14px 16px 10px;
+      display:flex; align-items:flex-end; justify-content:space-between;
+    }
+    .hud-tag {
+      font-family:'Share Tech Mono',monospace; font-size:0.7rem;
+      color:var(--accent2); letter-spacing:1px;
+    }
+    .rec-badge {
+      display:flex; align-items:center; gap:6px;
+      font-family:'Share Tech Mono',monospace; font-size:0.65rem;
+      color: var(--danger); letter-spacing:2px;
+    }
+    .rec-dot { width:6px;height:6px;border-radius:50%;background:var(--danger);
+      box-shadow:0 0 6px var(--danger); animation: blink 0.8s step-start infinite; }
+
+    /* Scrubber bar */
+    .scrubber-area {
+      padding: 8px 16px 12px;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+    }
+    .scrubber-bar {
+      width:100%; height:4px; background: rgba(255,255,255,0.08);
+      border-radius:2px; overflow:hidden; cursor:pointer;
+    }
+    .scrubber-fill {
+      height:100%; background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius:2px; width: 60%;
+      animation: scrub 8s linear infinite;
+    }
+    @keyframes scrub { from{width:5%} to{width:98%} }
+    .scrubber-info {
+      display:flex; justify-content:space-between; margin-top:6px;
+      font-family:'Share Tech Mono',monospace; font-size:0.65rem; color:var(--dim);
+    }
+
+    /* ─── Right column ─── */
+    .right-col {
+      display:flex; flex-direction:column; gap:1px;
+    }
+
+    /* ─── Metrics row (top-right) ─── */
+    .metrics-row {
+      display:grid; grid-template-columns: 1fr 1fr;
+      gap:1px;
+    }
+    .metric-card {
+      background: var(--panel);
+      padding: 20px 16px;
+      display:flex; flex-direction:column; align-items:center;
+      border: 1px solid var(--border);
+      position:relative; overflow:hidden;
+    }
+    .metric-card:nth-child(1) { border-radius: 0 12px 0 0; }
+    .metric-card .m-label {
+      font-family:'Share Tech Mono',monospace; font-size:0.62rem;
+      color:var(--dim); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px;
+    }
+    .metric-card .m-value {
+      font-family:'Rajdhani',sans-serif; font-weight:700; font-size:3.4rem;
+      line-height:1; color:#fff;
+    }
+    .metric-card .m-unit {
+      font-family:'Share Tech Mono',monospace; font-size:0.65rem; color:var(--accent); letter-spacing:1px; margin-top:6px;
+    }
+    .metric-card .m-bar {
+      width:100%; height:4px; background: rgba(255,255,255,0.06); border-radius:2px; margin-top:12px; overflow:hidden;
+    }
+    .metric-card .m-fill { height:100%; border-radius:2px; }
+    .metric-card.level .m-fill { background: linear-gradient(90deg,var(--accent),var(--accent2)); width:45%; }
+    .metric-card.status .m-fill { background: var(--ok); width:80%; }
+    /* Decorative corner glow */
+    .metric-card::after {
+      content:''; position:absolute; top:-20px; right:-20px;
+      width:60px; height:60px; border-radius:50%;
+      background: radial-gradient(circle, rgba(0,180,255,0.12), transparent 70%);
+    }
+
+    /* Status card */
+    .status-card {
+      background: var(--panel); border: 1px solid var(--border);
+      grid-column: 1/-1; padding:12px 16px;
+      display:flex; align-items:center; gap:10px;
+    }
+    .status-indicator {
+      width:8px; height:8px; border-radius:50%;
+      background:var(--ok); box-shadow: 0 0 10px var(--ok);
+      animation: blink 2s ease-in-out infinite;
+      flex-shrink:0;
+    }
+    .status-indicator.warn { background:var(--warn); box-shadow:0 0 10px var(--warn); }
+    .status-indicator.danger { background:var(--danger); box-shadow:0 0 10px var(--danger); animation: blink 0.5s step-start infinite; }
+    .status-text { font-family:'Rajdhani',sans-serif; font-weight:600; font-size:0.9rem; letter-spacing:1px; }
+    .status-text.ok { color:var(--ok); }
+    .status-text.warn { color:var(--warn); }
+    .status-text.danger { color:var(--danger); }
+    .status-since { font-family:'Share Tech Mono',monospace; font-size:0.65rem; color:var(--dim); margin-left:auto; }
+
+    /* ─── Alert log ─── */
+    .alert-panel {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 0 0 12px 0;
+      flex:1; display:flex; flex-direction:column; overflow:hidden;
+    }
+    .alert-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .alert-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.9rem; letter-spacing:2px; color:var(--text); }
+    .alert-count {
+      font-family:'Share Tech Mono',monospace; font-size:0.65rem;
+      background: rgba(255,59,59,0.15); color:var(--danger);
+      border:1px solid rgba(255,59,59,0.3); border-radius:10px; padding:1px 8px;
+    }
+    .alert-list { flex:1; overflow-y:auto; }
+    .alert-list::-webkit-scrollbar { width:3px; }
+    .alert-list::-webkit-scrollbar-track { background:transparent; }
+    .alert-list::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+    .alert-item {
+      display:flex; align-items:center; gap:12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      cursor:pointer; transition: background 0.15s;
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn { from{opacity:0;transform:translateX(10px)} to{opacity:1;transform:none} }
+    .alert-item:hover { background: rgba(0,180,255,0.05); }
+    .alert-item.active { background: rgba(0,180,255,0.08); border-left: 2px solid var(--accent); }
+
+    .alert-thumb {
+      width:52px; height:38px; border-radius:5px; overflow:hidden; flex-shrink:0;
+      background: #0a1520; border:1px solid var(--border);
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.2rem;
+    }
+    .alert-info { flex:1; min-width:0; }
+    .alert-type { font-family:'Rajdhani',sans-serif; font-weight:600; font-size:0.82rem; color:var(--text); }
+    .alert-type.danger { color:var(--danger); }
+    .alert-type.warn   { color:var(--warn); }
+    .alert-type.ok     { color:var(--ok); }
+    .alert-meta { font-family:'Share Tech Mono',monospace; font-size:0.6rem; color:var(--dim); margin-top:2px; }
+    .alert-num {
+      font-family:'Rajdhani',sans-serif; font-weight:700; font-size:1.5rem;
+      color:var(--dim); min-width:22px; text-align:right;
+    }
+
+    /* ─── Bottom action bar ─── */
+    .action-bar {
+      display:grid; grid-template-columns: repeat(4, 1fr);
+      gap:1px; border-top:1px solid var(--border);
+      background: var(--panel);
+    }
+    .action-btn {
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+      padding: 10px 6px;
+      cursor:pointer; transition: background 0.15s, color 0.15s;
+      font-family:'Rajdhani',sans-serif; font-weight:600;
+      font-size:0.68rem; letter-spacing:1px; color:var(--dim);
+      border:none; background:none;
+    }
+    .action-btn:hover { background: rgba(0,180,255,0.08); color:var(--accent); }
+    .action-btn.primary { background:rgba(0,180,255,0.15); color:var(--accent); border:1px solid rgba(0,180,255,0.3); }
+    .action-btn svg { width:18px; height:18px; }
+
+    /* ─── Map panel ─── */
+    .map-panel {
+      background: var(--panel); border: 1px solid var(--border);
+      padding: 10px 14px 10px;
+      display:flex; flex-direction:column; gap:6px;
+    }
+    .map-header {
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .map-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.85rem; letter-spacing:2px; color:var(--text); }
+    .map-coords-badge {
+      font-family:'Share Tech Mono',monospace; font-size:0.58rem; color:var(--accent2); letter-spacing:1px;
+    }
+    #map-container {
+      height: 200px; border-radius:6px; overflow:hidden;
+      border: 1px solid var(--border);
+      filter: saturate(0.5) brightness(0.75) hue-rotate(180deg);
+      transition: filter 0.3s;
+    }
+    #map-container:hover { filter: saturate(0.8) brightness(0.9) hue-rotate(180deg); }
+    /* Override leaflet attribution to fit dark theme */
+    .leaflet-control-attribution { background: rgba(0,0,0,0.6) !important; color: #4a6080 !important; font-size:8px !important; }
+    .leaflet-control-attribution a { color: #4a6080 !important; }
+    .chart-panel {
+      background: var(--panel); border: 1px solid var(--border);
+      padding: 12px 14px;
+      display:flex; flex-direction:column; gap:8px;
+    }
+    .chart-header {
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .chart-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.85rem; letter-spacing:2px; color:var(--text); }
+    .chart-range-btns { display:flex; gap:4px; }
+    .range-btn {
+      font-family:'Share Tech Mono',monospace; font-size:0.58rem; letter-spacing:1px;
+      padding:2px 8px; border-radius:3px; cursor:pointer; border:1px solid var(--border);
+      background:transparent; color:var(--dim); transition:all 0.15s;
+    }
+    .range-btn:hover, .range-btn.active { background:rgba(0,180,255,0.15); color:var(--accent); border-color:rgba(0,180,255,0.4); }
+    .chart-canvas-wrap {
+      position:relative; height:110px;
+    }
+    #history-canvas {
+      width:100%; height:100%; display:block;
+    }
+    .chart-labels {
+      display:flex; justify-content:space-between;
+      font-family:'Share Tech Mono',monospace; font-size:0.55rem; color:var(--dim);
+      margin-top:2px;
+    }
+    .chart-stats {
+      display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; margin-top:2px;
+    }
+    .chart-stat {
+      text-align:center; padding:4px 6px;
+      background:rgba(0,180,255,0.04); border:1px solid var(--border); border-radius:4px;
+    }
+    .chart-stat-val { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:1rem; color:var(--accent); }
+    .chart-stat-lbl { font-family:'Share Tech Mono',monospace; font-size:0.52rem; color:var(--dim); letter-spacing:1px; }
+
+    /* ══════════════════════════════════════
+       RESPONSIVE — TABLET & MOBILE
+    ══════════════════════════════════════ */
+
+    /* ── Tablet landscape (≤1024px) ── */
+    @media (max-width: 1024px) {
+      .main {
+        grid-template-columns: 1fr 340px;
+        padding: 12px;
+      }
+      .metric-card .m-value { font-size: 2.6rem; }
+      #map-container { height: 160px; }
+    }
+
+    /* ── Tablet portrait (≤768px) ── */
+    @media (max-width: 768px) {
+      .topbar { padding: 8px 16px; }
+      .topbar-sub { display: none; }
+      .topbar-title { font-size: 1rem; letter-spacing: 2px; }
+      .sys-status span:not(.dot-live) { display: none; }
+
+      .main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+        height: auto;
+        padding: 10px;
+        gap: 8px;
+        padding-bottom: 72px; /* space for bottom nav */
+      }
+
+      /* CCTV full width on top */
+      .cctv-panel {
+        grid-row: auto;
+        border-radius: 12px;
+        margin: 0;
+        height: 280px;
+      }
+      .cctv-wrap { flex: 1; }
+
+      /* Right col full width below */
+      .right-col {
+        grid-column: 1;
+        gap: 8px;
+      }
+
+      .metrics-row { gap: 8px; }
+      .metric-card { padding: 16px 12px; border-radius: 10px !important; border: 1px solid var(--border); }
+      .metric-card .m-value { font-size: 2.8rem; }
+
+      .status-card { border-radius: 10px; border: 1px solid var(--border); }
+
+      .map-panel { border-radius: 10px; border: 1px solid var(--border); }
+      #map-container { height: 180px; }
+
+      .chart-panel { border-radius: 10px; border: 1px solid var(--border); }
+      .chart-canvas-wrap { height: 130px; }
+
+      .alert-panel { border-radius: 10px; border: 1px solid var(--border); max-height: 320px; }
+    }
+
+    /* ── Mobile portrait (≤480px) ── */
+    @media (max-width: 480px) {
+      .topbar { padding: 8px 12px; }
+      .topbar-title { font-size: 0.9rem; letter-spacing: 1px; }
+      .topbar-time { font-size: 0.72rem; }
+
+      .main { padding: 8px; gap: 6px; padding-bottom: 76px; }
+
+      .cctv-panel { height: 220px; }
+      .cctv-header { padding: 8px 12px; }
+      .cam-name { font-size: 0.85rem; }
+
+      .metric-card { padding: 14px 10px; }
+      .metric-card .m-value { font-size: 2.4rem; }
+      .metric-card .m-label { font-size: 0.55rem; }
+      .metric-card .m-unit  { font-size: 0.6rem; }
+
+      .status-card { padding: 10px 12px; }
+      .status-text { font-size: 0.8rem; }
+
+      #map-container { height: 160px; }
+
+      .chart-canvas-wrap { height: 110px; }
+      .chart-title { font-size: 0.78rem; }
+      .range-btn { padding: 2px 6px; font-size: 0.55rem; }
+
+      .alert-item { padding: 8px 10px; gap: 8px; }
+      .alert-thumb { width: 42px; height: 32px; font-size: 1rem; }
+      .alert-type { font-size: 0.75rem; }
+      .alert-meta { font-size: 0.55rem; }
+    }
+
+    /* ── Bottom Nav (mobile only) ── */
+    .bottom-nav {
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .bottom-nav {
+        display: flex;
+        position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+        background: var(--panel);
+        border-top: 1px solid var(--border);
+        backdrop-filter: blur(12px);
+        padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+      }
+      .bnav-item {
+        flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+        cursor: pointer; padding: 4px 0;
+        font-family: 'Share Tech Mono', monospace; font-size: 0.55rem;
+        letter-spacing: 1px; color: var(--dim);
+        border: none; background: none;
+        transition: color 0.15s;
+      }
+      .bnav-item.active { color: var(--accent); }
+      .bnav-item svg { width: 20px; height: 20px; }
+      .bnav-item.active svg { filter: drop-shadow(0 0 6px var(--accent)); }
+
+      /* Section visibility toggling */
+      .mobile-section { display: none !important; }
+      .mobile-section.visible { display: flex !important; }
+      /* CCTV always visible */
+      .cctv-panel { display: flex !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo-ring"><span></span></div>
+    <div>
+      <div class="topbar-title">Smart ELO Station</div>
+      <div class="topbar-sub">FLOOD MONITORING SYSTEM · NODE-RED CLOUD</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="sys-status">
+      <span class="dot-live"></span>SYSTEM ONLINE
+    </div>
+    <div class="topbar-time" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<!-- MAIN LAYOUT -->
+<div class="main">
+
+  <!-- CCTV PANEL -->
+  <div class="cctv-panel">
+    <div class="cctv-header">
+      <div>
+        <div class="cam-label">CAMERA FEED</div>
+        <div class="cam-name">Station Camera-01</div>
+      </div>
+      <div class="cam-badge" id="frame-counter">FRAME 0/--</div>
+    </div>
+    <div class="cctv-wrap">
+      <img id="cctv-frame" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect fill='%23050c15'/%3E%3Ctext x='50%25' y='50%25' font-family='monospace' font-size='14' fill='%23334466' text-anchor='middle' dominant-baseline='middle'%3EWaiting for feed...%3C/text%3E%3C/svg%3E" alt="CCTV Feed"/>
+      <div class="scanline"></div>
+      <div class="corner c-tl"></div>
+      <div class="corner c-tr"></div>
+      <div class="corner c-bl"></div>
+      <div class="corner c-br"></div>
+      <div class="hud-overlay">
+        <div class="hud-tag" id="hud-time">-- : -- : --</div>
+        <div class="rec-badge"><span class="rec-dot"></span>REC</div>
+      </div>
+    </div>
+    <div class="scrubber-area">
+      <div class="scrubber-bar"><div class="scrubber-fill" id="scrubber"></div></div>
+      <div class="scrubber-info">
+        <span id="scrubber-left">LIVE</span>
+        <span id="update-ts">Last update: --</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="right-col">
+
+    <!-- METRICS -->
+    <div class="metrics-row mobile-section visible" id="sec-metrics">
+      <div class="metric-card level">
+        <div class="m-label">Water Level</div>
+        <div class="m-value" id="water-level">--</div>
+        <div class="m-unit">CENTIMETERS</div>
+        <div class="m-bar"><div class="m-fill" id="water-bar"></div></div>
+      </div>
+      <div class="metric-card status">
+        <div class="m-label">Station Status</div>
+        <div class="m-value" style="font-size:1.6rem; margin-top:4px;" id="station-icon">🟢</div>
+        <div class="m-unit" id="station-label">NORMAL</div>
+        <div class="m-bar"><div class="m-fill" id="status-bar"></div></div>
+      </div>
+    </div>
+
+    <!-- STATUS ROW -->
+    <div class="metrics-row mobile-section visible" id="sec-stats" style="grid-template-columns:1fr;">
+      <div class="status-card">
+        <div class="status-indicator" id="status-dot"></div>
+        <div class="status-text ok" id="status-text">WATER LEVEL NORMAL</div>
+        <div class="status-since" id="status-since">--:--:--</div>
+      </div>
+    </div>
+
+    <!-- MAP -->
+    <div class="map-panel mobile-section" id="sec-map">
+      <div class="map-header">
+        <div class="map-title">STATION LOCATION</div>
+        <div class="map-coords-badge">14.5832°N 100.9894°E</div>
+      </div>
+      <div id="map-container"></div>
+    </div>
+
+    <!-- HISTORY CHART -->
+    <div class="chart-panel mobile-section" id="sec-chart">
+      <div class="chart-header">
+        <div class="chart-title">WATER LEVEL HISTORY</div>
+        <div class="chart-range-btns">
+          <button class="range-btn active" onclick="setRange('1h',this)">1H</button>
+          <button class="range-btn" onclick="setRange('6h',this)">6H</button>
+          <button class="range-btn" onclick="setRange('24h',this)">24H</button>
+          <button class="range-btn" onclick="setRange('7d',this)">7D</button>
+        </div>
+      </div>
+      <div class="chart-canvas-wrap">
+        <canvas id="history-canvas"></canvas>
+      </div>
+      <div class="chart-labels" id="chart-labels"></div>
+      <div class="chart-stats">
+        <div class="chart-stat">
+          <div class="chart-stat-val" id="stat-min">--</div>
+          <div class="chart-stat-lbl">MIN cm</div>
+        </div>
+        <div class="chart-stat">
+          <div class="chart-stat-val" id="stat-avg">--</div>
+          <div class="chart-stat-lbl">AVG cm</div>
+        </div>
+        <div class="chart-stat">
+          <div class="chart-stat-val" id="stat-max">--</div>
+          <div class="chart-stat-lbl">MAX cm</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALERT LOG -->
+    <div class="alert-panel mobile-section" id="sec-log">
+      <div class="alert-header">
+        <div class="alert-title">EVENT LOG</div>
+        <div class="alert-count" id="alert-count">0 EVENTS</div>
+      </div>
+      <div class="alert-list" id="alert-list">
+        <!-- populated by JS -->
+      </div>
+      <!-- ACTION BAR -->
+      <div class="action-bar">
+        <button class="action-btn" onclick="exportLog()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          EXPORT
+        </button>
+        <button class="action-btn primary" onclick="callAuthority()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.5a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.18a16 16 0 006 6l1.27-.78a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+          CALL AUTH
+        </button>
+        <button class="action-btn" onclick="switchCamera()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          SWITCH CAM
+        </button>
+        <button class="action-btn" onclick="clearAlerts()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          CLEAR
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const API_WATER = 'http://103.234.236.68:1880/get-water-level';
+  const API_CCTV  = 'http://103.234.236.68:1880/get-cctv';
+
+  // Thresholds (cm)
+  const T_WARN   = 50;
+  const T_DANGER = 100;
+  const T_MAX    = 200;
+
+  let frameCount = 0;
+  let events = [];
+
+  // Clock
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent = now.toLocaleTimeString('th-TH',{hour12:false});
+    document.getElementById('hud-time').textContent = now.toTimeString().slice(0,8);
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // Determine status from level
+  function getStatus(level) {
+    if (level >= T_DANGER) return { cls:'danger', label:'CRITICAL FLOOD ALERT', icon:'🔴', color:'#ff3b3b', barColor:'#ff3b3b', barW: Math.min(100, level/T_MAX*100) + '%' };
+    if (level >= T_WARN)   return { cls:'warn',   label:'WARNING: RISING WATER', icon:'🟡', color:'#ffb700', barColor:'#ffb700', barW: Math.min(100, level/T_MAX*100) + '%' };
+    return                        { cls:'ok',     label:'WATER LEVEL NORMAL',    icon:'🟢', color:'#00e676', barColor:'#00e676', barW: Math.min(100, level/T_MAX*100) + '%' };
+  }
+
+  function updateUI(level) {
+    const el = document.getElementById('water-level');
+    el.textContent = level;
+
+    const s = getStatus(level);
+
+    // Color the number
+    el.style.color = s.color;
+    el.style.textShadow = `0 0 20px ${s.color}55`;
+
+    // Water bar
+    const wb = document.getElementById('water-bar');
+    wb.style.width = s.barW;
+    wb.style.background = s.color;
+
+    // Status dot & text
+    const dot = document.getElementById('status-dot');
+    dot.className = `status-indicator ${s.cls}`;
+    const txt = document.getElementById('status-text');
+    txt.className = `status-text ${s.cls}`;
+    txt.textContent = s.label;
+    document.getElementById('status-since').textContent = new Date().toLocaleTimeString('th-TH',{hour12:false});
+
+    // Station card
+    document.getElementById('station-icon').textContent = s.icon;
+    const sl = document.getElementById('station-label');
+    sl.textContent = s.cls === 'ok' ? 'NORMAL' : s.cls === 'warn' ? 'WARNING' : 'CRITICAL';
+    sl.style.color = s.color;
+
+    const sb = document.getElementById('status-bar');
+    sb.style.width = s.barW;
+    sb.style.background = s.color;
+  }
+
+  function addEvent(level) {
+    const s = getStatus(level);
+    if (s.cls === 'ok') return; // Only log non-normal events
+    const ev = {
+      type: s.cls === 'danger' ? 'FLOOD CRITICAL' : 'LEVEL WARNING',
+      cls: s.cls,
+      level, time: new Date().toLocaleTimeString('th-TH',{hour12:false}),
+      date: new Date().toLocaleDateString('th-TH'),
+      icon: s.cls === 'danger' ? '🌊' : '⚠️',
+    };
+    events.unshift(ev);
+    if (events.length > 20) events.pop();
+    renderEvents();
+  }
+
+  function renderEvents() {
+    const list = document.getElementById('alert-list');
+    document.getElementById('alert-count').textContent = events.length + ' EVENTS';
+    if (events.length === 0) {
+      list.innerHTML = '<div style="padding:20px;text-align:center;font-family:\'Share Tech Mono\',monospace;font-size:0.7rem;color:#334466;letter-spacing:1px;">NO EVENTS RECORDED</div>';
+      return;
+    }
+    list.innerHTML = events.map((ev, i) => `
+      <div class="alert-item ${i===0?'active':''}">
+        <div class="alert-thumb">${ev.icon}</div>
+        <div class="alert-info">
+          <div class="alert-type ${ev.cls}">${ev.type}</div>
+          <div class="alert-meta">STATION-01 · ${ev.time} · ${ev.level}cm</div>
+        </div>
+        <div class="alert-num">${i+1}</div>
+      </div>
+    `).join('');
+  }
+  renderEvents(); // initial empty state
+
+  // Fetch water level
+  async function fetchWater() {
+    try {
+      const res  = await fetch(API_WATER);
+      const data = await res.json();
+      const lvl  = parseFloat(data.data.water_level) || 0;
+      updateUI(lvl);
+      addEvent(lvl);
+      pushToChart(lvl);
+    } catch(e) {
+      console.warn('Water fetch failed:', e);
+    }
+  }
+
+  // Fetch CCTV
+  async function fetchCCTV() {
+    try {
+      const res  = await fetch(API_CCTV);
+      const data = await res.json();
+      if (data.image_base64) {
+        document.getElementById('cctv-frame').src = data.image_base64;
+        frameCount++;
+        document.getElementById('frame-counter').textContent = `FRAME ${frameCount}/∞`;
+        document.getElementById('update-ts').textContent = 'Last update: ' + new Date().toLocaleTimeString('th-TH',{hour12:false});
+      }
+    } catch(e) {
+      console.warn('CCTV fetch failed:', e);
+    }
+  }
+
+  function exportLog() {
+    const txt = events.map(e => `[${e.date} ${e.time}] ${e.type} — Level: ${e.level}cm`).join('\n');
+    const blob = new Blob([txt || 'No events.'], {type:'text/plain'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'event-log.txt'; a.click();
+  }
+
+  function callAuthority() {
+    alert('📞 Contacting Flood Control Authority...');
+  }
+
+  function switchCamera() {
+    alert('📷 No additional cameras configured.');
+  }
+
+  function clearAlerts() {
+    events = [];
+    renderEvents();
+  }
+
+  // ─── MAP ───
+  // พิกัด Smart ELO Station (แก้ lat/lng ตามตำแหน่งจริง)
+  const STATION_LAT = 14.5832;
+  const STATION_LNG = 100.9894;
+
+  const map = L.map('map-container', {
+    center: [STATION_LAT, STATION_LNG],
+    zoom: 14,
+    zoomControl: false,
+    attributionControl: true,
+    scrollWheelZoom: false,
+    dragging: false,
+  });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19,
+  }).addTo(map);
+
+  // Custom pulsing marker
+  const pulseIcon = L.divIcon({
+    className: '',
+    html: `<div style="
+      width:16px;height:16px;border-radius:50%;
+      background:#00b4ff;
+      box-shadow:0 0 0 0 rgba(0,180,255,0.8);
+      animation:map-ping 1.5s ease-out infinite;
+      border:2px solid #00ffcc;
+    "></div>
+    <style>
+      @keyframes map-ping {
+        0%   { box-shadow:0 0 0 0   rgba(0,180,255,0.8); }
+        70%  { box-shadow:0 0 0 16px transparent; }
+        100% { box-shadow:0 0 0 0   transparent; }
+      }
+    </style>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+  });
+
+  L.marker([STATION_LAT, STATION_LNG], { icon: pulseIcon })
+    .addTo(map)
+    .bindPopup('<b style="font-family:Rajdhani,sans-serif;color:#00b4ff">Smart ELO Station</b><br><small style="font-family:Share Tech Mono,monospace;color:#4a6080">Water Level Monitor</small>')
+    .openPopup();
+
+  // ─── HISTORY CHART ───
+  // Node-RED endpoint ที่จะ query InfluxDB (เพิ่มเองทีหลัง)
+  // Expected response: { data: [ { time: "HH:MM", value: 42.5 }, ... ] }
+  const API_HISTORY = 'http://103.234.236.68:1880/get-history';
+
+  let currentRange = '1h';
+  let historyData  = [];   // { time, value }[]
+  let demoMode     = true; // เปลี่ยนเป็น false เมื่อ endpoint พร้อม
+
+  function setRange(range, btn) {
+    currentRange = range;
+    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    fetchHistory();
+  }
+
+  // Generate demo data for testing before InfluxDB is ready
+  function genDemoData(range) {
+    const pts = { '1h':20, '6h':36, '24h':48, '7d':56 }[range] || 20;
+    const now = Date.now();
+    const spans = { '1h':3600, '6h':21600, '24h':86400, '7d':604800 };
+    const span = (spans[range] || 3600) * 1000;
+    let base = 30, arr = [];
+    for (let i = 0; i < pts; i++) {
+      base += (Math.random() - 0.46) * 8;
+      base = Math.max(5, Math.min(150, base));
+      const t = new Date(now - span + (span / pts) * i);
+      arr.push({
+        time: range === '7d'
+          ? t.toLocaleDateString('th-TH',{day:'numeric',month:'short'})
+          : t.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}),
+        value: Math.round(base * 10) / 10
+      });
+    }
+    return arr;
+  }
+
+  async function fetchHistory() {
+    if (demoMode) {
+      historyData = genDemoData(currentRange);
+      renderChart(historyData);
+      return;
+    }
+    try {
+      const res  = await fetch(`${API_HISTORY}?range=${currentRange}`);
+      const json = await res.json();
+      historyData = json.data || [];
+      renderChart(historyData);
+    } catch(e) {
+      console.warn('History fetch failed, using demo data:', e);
+      historyData = genDemoData(currentRange);
+      renderChart(historyData);
+    }
+  }
+
+  function renderChart(data) {
+    if (!data || data.length === 0) return;
+
+    const canvas = document.getElementById('history-canvas');
+    const wrap   = canvas.parentElement;
+    canvas.width  = wrap.clientWidth  * devicePixelRatio;
+    canvas.height = wrap.clientHeight * devicePixelRatio;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+    const W = wrap.clientWidth, H = wrap.clientHeight;
+
+    const vals   = data.map(d => d.value);
+    const minVal = Math.min(...vals);
+    const maxVal = Math.max(...vals);
+    const range  = maxVal - minVal || 1;
+    const pad    = { top:10, right:8, bottom:16, left:32 };
+    const gW = W - pad.left - pad.right;
+    const gH = H - pad.top  - pad.bottom;
+
+    const toX = i => pad.left + (i / (data.length - 1)) * gW;
+    const toY = v => pad.top  + (1 - (v - minVal) / range) * gH;
+
+    // Background
+    ctx.clearRect(0, 0, W, H);
+
+    // Threshold lines
+    const drawThresh = (cm, color, label) => {
+      if (cm < minVal || cm > maxVal) return;
+      const y = toY(cm);
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = color + '66';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+      ctx.fillStyle = color; ctx.font = `${9 * devicePixelRatio / devicePixelRatio}px Share Tech Mono,monospace`;
+      ctx.fillText(label, pad.left + 2, y - 3);
+      ctx.restore();
+    };
+    drawThresh(50,  '#ffb700', 'WARN');
+    drawThresh(100, '#ff3b3b', 'CRIT');
+
+    // Y-axis gridlines
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,180,255,0.06)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = pad.top + (i / 4) * gH;
+      ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+      const lbl = Math.round(maxVal - (i / 4) * range);
+      ctx.fillStyle = '#4a6080';
+      ctx.font = `${8}px Share Tech Mono,monospace`;
+      ctx.textAlign = 'right';
+      ctx.fillText(lbl, pad.left - 4, y + 3);
+    }
+    ctx.restore();
+
+    // Area fill
+    const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + gH);
+    grad.addColorStop(0,   'rgba(0,180,255,0.25)');
+    grad.addColorStop(0.6, 'rgba(0,180,255,0.04)');
+    grad.addColorStop(1,   'transparent');
+    ctx.beginPath();
+    ctx.moveTo(toX(0), toY(data[0].value));
+    for (let i = 1; i < data.length; i++) {
+      const x0 = toX(i-1), y0 = toY(data[i-1].value);
+      const x1 = toX(i),   y1 = toY(data[i].value);
+      const cx = (x0 + x1) / 2;
+      ctx.bezierCurveTo(cx, y0, cx, y1, x1, y1);
+    }
+    ctx.lineTo(toX(data.length - 1), pad.top + gH);
+    ctx.lineTo(toX(0), pad.top + gH);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    ctx.moveTo(toX(0), toY(data[0].value));
+    for (let i = 1; i < data.length; i++) {
+      const x0 = toX(i-1), y0 = toY(data[i-1].value);
+      const x1 = toX(i),   y1 = toY(data[i].value);
+      const cx = (x0 + x1) / 2;
+      ctx.bezierCurveTo(cx, y0, cx, y1, x1, y1);
+    }
+    const lineGrad = ctx.createLinearGradient(pad.left, 0, W - pad.right, 0);
+    lineGrad.addColorStop(0, '#00b4ff');
+    lineGrad.addColorStop(1, '#00ffcc');
+    ctx.strokeStyle = lineGrad;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    // Last point dot + glow
+    const lx = toX(data.length - 1), ly = toY(data[data.length - 1].value);
+    ctx.save();
+    ctx.shadowColor = '#00b4ff'; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#00ffcc'; ctx.fill();
+    ctx.restore();
+
+    // X-axis labels (show ~5 evenly spaced)
+    const labelStep = Math.max(1, Math.floor(data.length / 5));
+    const labels = [];
+    for (let i = 0; i < data.length; i += labelStep) labels.push(data[i].time);
+    document.getElementById('chart-labels').innerHTML =
+      labels.map(l => `<span>${l}</span>`).join('');
+
+    // Stats
+    const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
+    document.getElementById('stat-min').textContent = Math.round(minVal);
+    document.getElementById('stat-avg').textContent = Math.round(avg * 10) / 10;
+    document.getElementById('stat-max').textContent = Math.round(maxVal);
+
+    // Color max stat if above threshold
+    const maxEl = document.getElementById('stat-max');
+    maxEl.style.color = maxVal >= 100 ? '#ff3b3b' : maxVal >= 50 ? '#ffb700' : 'var(--accent)';
+  }
+
+  // Push live reading into chart buffer (max 60 pts)
+  function pushToChart(level) {
+    if (demoMode) return; // demo generates own data
+    const now = new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false});
+    historyData.push({ time: now, value: level });
+    if (historyData.length > 60) historyData.shift();
+    renderChart(historyData);
+  }
+
+  // ─── MOBILE TAB SWITCHING ───
+  const mobileSections = {
+    stats: ['sec-metrics', 'sec-stats'],
+    map:   ['sec-map'],
+    chart: ['sec-chart'],
+    log:   ['sec-log'],
+  };
+
+  function mobileTab(tab, btn) {
+    if (window.innerWidth > 768) return;
+    // Hide all mobile sections
+    document.querySelectorAll('.mobile-section').forEach(el => el.classList.remove('visible'));
+    // Show selected
+    (mobileSections[tab] || []).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('visible');
+    });
+    // Update nav active state
+    document.querySelectorAll('.bnav-item').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // Re-render chart if switching to chart tab
+    if (tab === 'chart' && historyData.length) {
+      setTimeout(() => renderChart(historyData), 50);
+    }
+    // Invalidate map size if switching to map tab
+    if (tab === 'map' && typeof map !== 'undefined') {
+      setTimeout(() => map.invalidateSize(), 100);
+    }
+  }
+
+  // On resize back to desktop — show all sections
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) {
+      document.querySelectorAll('.mobile-section').forEach(el => el.classList.add('visible'));
+    }
+    if (historyData.length) renderChart(historyData);
+  });
+
+  // Init
+  fetchWater();
+  fetchCCTV();
+  fetchHistory();
+  setInterval(fetchWater, 3000);
+  setInterval(fetchCCTV, 3000);
+  setInterval(fetchHistory, 30000); // refresh history every 30s
+</script>
+<!-- BOTTOM NAV (mobile only) -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bnav-item active" onclick="mobileTab('stats',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    DATA
+  </button>
+  <button class="bnav-item" onclick="mobileTab('map',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+    MAP
+  </button>
+  <button class="bnav-item" onclick="mobileTab('chart',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    GRAPH
+  </button>
+  <button class="bnav-item" onclick="mobileTab('log',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    LOG
+  </button>
+</nav>
+
+</body>
+</html>
