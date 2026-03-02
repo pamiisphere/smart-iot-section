@@ -7,7 +7,208 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;800&family=Sarabun:wght@400;500;600&family=Noto+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js">
+</script>
+<script>
+// ═══════════════════════════════════════
+  //  EXPAND MODAL SYSTEM
+  // ═══════════════════════════════════════
+  var modalMap = null; // Leaflet map instance inside modal
+
+  function openModal(type) {
+    var overlay = document.getElementById('modal-overlay');
+    var body    = document.getElementById('modal-body');
+    var title   = document.getElementById('modal-title');
+    var t       = i18n[currentLang];
+
+    body.innerHTML = ''; // clear
+
+    if (type === 'cctv') {
+      title.textContent = t.cameraFeed + ' — ' + t.camName;
+      body.style.padding = '0';
+      body.innerHTML =
+        '<div class="modal-cctv-wrap" style="flex:1;min-height:50vh;">' +
+          '<img id="modal-cctv-img" style="width:100%;height:100%;object-fit:contain;background:#000;" ' +
+            'src="' + (document.getElementById('cctv-frame').src) + '">' +
+          '<div class="scanline"></div>' +
+          '<div class="corner c-tl"></div><div class="corner c-tr"></div>' +
+          '<div class="corner c-bl"></div><div class="corner c-br"></div>' +
+          '<div class="hud-overlay">' +
+            '<div class="hud-tag" id="modal-hud-time">' + document.getElementById('hud-time').textContent + '</div>' +
+            '<div class="rec-badge"><span class="rec-dot"></span>REC</div>' +
+          '</div>' +
+        '</div>';
+      // Mirror CCTV updates into modal
+      window._modalCctvActive = true;
+
+    } else if (type === 'map') {
+      title.textContent = t.stationLoc;
+      body.innerHTML = '<div id="modal-map-container"></div>';
+      // Init Leaflet inside modal after DOM is ready
+      setTimeout(function() {
+        if (modalMap) { modalMap.remove(); modalMap = null; }
+        modalMap = L.map('modal-map-container', {
+          center: [STATION_LAT, STATION_LNG], zoom: 15,
+          zoomControl: true, scrollWheelZoom: true, dragging: true,
+        });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap', maxZoom: 19,
+        }).addTo(modalMap);
+        L.marker([STATION_LAT, STATION_LNG], { icon: pulseIcon })
+          .addTo(modalMap)
+          .bindPopup('<b style="font-family:Rajdhani,sans-serif;color:#00b4ff">Smart ELO Station</b>')
+          .openPopup();
+        modalMap.invalidateSize();
+      }, 80);
+
+    } else if (type === 'chart') {
+      title.textContent = t.chartTitle;
+      body.innerHTML =
+        '<div class="modal-chart-wrap">' +
+          '<canvas id="modal-chart-canvas"></canvas>' +
+        '</div>' +
+        '<div class="chart-labels" id="modal-chart-labels" style="margin-top:6px;"></div>' +
+        '<div class="chart-stats" style="margin-top:8px;">' +
+          '<div class="chart-stat"><div class="chart-stat-val" id="modal-stat-min">--</div><div class="chart-stat-lbl">' + t.minCm + '</div></div>' +
+          '<div class="chart-stat"><div class="chart-stat-val" id="modal-stat-avg">--</div><div class="chart-stat-lbl">' + t.avgCm + '</div></div>' +
+          '<div class="chart-stat"><div class="chart-stat-val" id="modal-stat-max">--</div><div class="chart-stat-lbl">' + t.maxCm + '</div></div>' +
+        '</div>';
+      setTimeout(function() { renderModalChart(historyData); }, 80);
+
+    } else if (type === 'log') {
+      title.textContent = t.sensorLog;
+      var intervalMins = parseInt(document.getElementById('interval-select').value) || 1;
+      var filtered = filterByInterval(historyData, intervalMins);
+      var statusLabel = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
+      var rows = filtered.slice().reverse().map(function(r, i) {
+        var s = getStatus(r.value);
+        return '<tr class="' + (i===0?'row-new':'') + '">' +
+          '<td class="td-time">' + (filtered.length-i) + '</td>' +
+          '<td class="td-time">' + r.time + '</td>' +
+          '<td class="td-level ' + s.cls + '">' + r.value + '</td>' +
+          '<td><span class="td-status-pill ' + s.cls + '"><span class="pill-dot"></span>' + statusLabel[s.cls] + '</span></td>' +
+          '</tr>';
+      }).join('');
+      body.innerHTML =
+        '<div class="modal-log-wrap">' +
+          '<table class="log-table" style="width:100%;">' +
+            '<thead><tr>' +
+              '<th>#</th><th>' + t.datetime + '</th><th>' + t.level + '</th><th>' + t.status + '</th>' +
+            '</tr></thead>' +
+            '<tbody>' + (rows || '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--dim);">' + t.waiting + '</td></tr>') + '</tbody>' +
+          '</table>' +
+        '</div>';
+    }
+
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function renderModalChart(data) {
+    var canvas = document.getElementById('modal-chart-canvas');
+    if (!canvas || !data || !data.length) return;
+    var wrap = canvas.parentElement;
+    canvas.width  = wrap.clientWidth  * devicePixelRatio;
+    canvas.height = wrap.clientHeight * devicePixelRatio;
+    var ctx = canvas.getContext('2d');
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+    var W = wrap.clientWidth, H = wrap.clientHeight;
+    var isLight = document.body.classList.contains('light');
+    var accentColor  = isLight ? '#0077cc' : '#00b4ff';
+    var accent2Color = isLight ? '#00aa88' : '#00ffcc';
+    var gridColor    = isLight ? 'rgba(0,120,200,0.08)' : 'rgba(0,180,255,0.06)';
+    var axisColor    = isLight ? '#7a96b0' : '#4a6080';
+    var areaTop      = isLight ? 'rgba(0,120,200,0.15)' : 'rgba(0,180,255,0.25)';
+    var areaBot      = isLight ? 'rgba(0,120,200,0.02)' : 'rgba(0,180,255,0.04)';
+    var vals   = data.map(function(d){return d.value;});
+    var minVal = Math.min.apply(null,vals), maxVal = Math.max.apply(null,vals);
+    var range  = maxVal - minVal || 1;
+    var pad    = {top:14,right:12,bottom:24,left:40};
+    var gW = W-pad.left-pad.right, gH = H-pad.top-pad.bottom;
+    function toX(i){return pad.left+(i/(data.length-1))*gW;}
+    function toY(v){return pad.top+(1-(v-minVal)/range)*gH;}
+    ctx.clearRect(0,0,W,H);
+    // Grid
+    ctx.save(); ctx.strokeStyle=gridColor; ctx.lineWidth=1;
+    for(var gi=0;gi<=5;gi++){
+      var gy=pad.top+(gi/5)*gH;
+      ctx.beginPath();ctx.moveTo(pad.left,gy);ctx.lineTo(W-pad.right,gy);ctx.stroke();
+      ctx.fillStyle=axisColor;ctx.font='9px Share Tech Mono,monospace';ctx.textAlign='right';
+      ctx.fillText(Math.round(maxVal-(gi/5)*range),pad.left-5,gy+3);
+    }
+    ctx.restore();
+    // Thresholds
+    function drawT(cm,col,lbl){
+      if(cm<minVal-2||cm>maxVal+2)return;
+      var y=toY(cm);
+      ctx.save();ctx.setLineDash([4,4]);ctx.strokeStyle=col+'88';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();
+      ctx.fillStyle=col;ctx.font='10px Share Tech Mono,monospace';ctx.fillText(lbl,pad.left+3,y-4);ctx.restore();
+    }
+    drawT(T_WARN,'#ffb700','WARN'); drawT(T_DANGER,'#ff3b3b','CRIT');
+    // Area
+    var grad=ctx.createLinearGradient(0,pad.top,0,pad.top+gH);
+    grad.addColorStop(0,areaTop);grad.addColorStop(0.7,areaBot);grad.addColorStop(1,'transparent');
+    ctx.beginPath();ctx.moveTo(toX(0),toY(data[0].value));
+    for(var i=1;i<data.length;i++){var cx=(toX(i-1)+toX(i))/2;ctx.bezierCurveTo(cx,toY(data[i-1].value),cx,toY(data[i].value),toX(i),toY(data[i].value));}
+    ctx.lineTo(toX(data.length-1),pad.top+gH);ctx.lineTo(toX(0),pad.top+gH);ctx.closePath();
+    ctx.fillStyle=grad;ctx.fill();
+    // Line
+    ctx.beginPath();ctx.moveTo(toX(0),toY(data[0].value));
+    for(var i=1;i<data.length;i++){var cx=(toX(i-1)+toX(i))/2;ctx.bezierCurveTo(cx,toY(data[i-1].value),cx,toY(data[i].value),toX(i),toY(data[i].value));}
+    var lg=ctx.createLinearGradient(pad.left,0,W-pad.right,0);lg.addColorStop(0,accentColor);lg.addColorStop(1,accent2Color);
+    ctx.strokeStyle=lg;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.stroke();
+    // Last dot
+    var lx=toX(data.length-1),ly=toY(data[data.length-1].value);
+    ctx.save();ctx.shadowColor=accentColor;ctx.shadowBlur=12;
+    ctx.beginPath();ctx.arc(lx,ly,5,0,Math.PI*2);ctx.fillStyle=accent2Color;ctx.fill();ctx.restore();
+    // X labels
+    var step=Math.max(1,Math.floor(data.length/8));
+    var lbls=[];for(var i=0;i<data.length;i+=step)lbls.push(data[i].time);
+    var labelsEl=document.getElementById('modal-chart-labels');
+    if(labelsEl)labelsEl.innerHTML=lbls.map(function(l){return'<span>'+l+'</span>';}).join('');
+    // Stats
+    var avg=vals.reduce(function(a,b){return a+b;},0)/vals.length;
+    var minEl=document.getElementById('modal-stat-min');
+    var avgEl=document.getElementById('modal-stat-avg');
+    var maxEl=document.getElementById('modal-stat-max');
+    if(minEl)minEl.textContent=Math.round(minVal);
+    if(avgEl)avgEl.textContent=Math.round(avg*10)/10;
+    if(maxEl){maxEl.textContent=Math.round(maxVal);maxEl.style.color=maxVal>=T_DANGER?'#ff3b3b':maxVal>=T_WARN?'#ffb700':'var(--accent)';}
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+    window._modalCctvActive = false;
+    if (modalMap) { modalMap.remove(); modalMap = null; }
+  }
+
+  function closeModalOutside(e) {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  }
+
+  // Keyboard ESC to close
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  // Mirror live CCTV frames into modal when open
+  var _origFetchCCTV = fetchCCTV;
+  // After fetchCCTV updates the main frame, also update modal frame if open
+  // We hook into the cctv img src update
+  var _cctvObserver = new MutationObserver(function() {
+    if (window._modalCctvActive) {
+      var modalImg = document.getElementById('modal-cctv-img');
+      var mainImg  = document.getElementById('cctv-frame');
+      if (modalImg && mainImg) modalImg.src = mainImg.src;
+      var modalTime = document.getElementById('modal-hud-time');
+      var mainTime  = document.getElementById('hud-time');
+      if (modalTime && mainTime) modalTime.textContent = mainTime.textContent;
+    }
+  });
+  _cctvObserver.observe(document.getElementById('cctv-frame'), { attributes: true, attributeFilter: ['src'] });
+</script>
   <style>
     :root {
       --bg:        #080d14;
@@ -265,8 +466,8 @@
       width:100%; height:4px; background: rgba(255,255,255,0.06); border-radius:2px; margin-top:12px; overflow:hidden;
     }
     .metric-card .m-fill { height:100%; border-radius:2px; }
-    .metric-card.level .m-fill { background: linear-gradient(90deg,var(--accent),var(--accent2)); width:45%; }
-    .metric-card.status .m-fill { background: var(--ok); width:80%; }
+    .metric-card.level .m-fill { background: linear-gradient(90deg,var(--accent),var(--accent2)); transition:width 0.6s ease; }
+    .metric-card.status .m-fill { background: var(--ok); transition:width 0.6s ease; }
     /* Decorative corner glow */
     .metric-card::after {
       content:''; position:absolute; top:-20px; right:-20px;
@@ -345,7 +546,15 @@
     .lang-btn.active { background:rgba(0,180,255,0.15); color:var(--accent); }
     .lang-btn:not(:last-child) { border-right:1px solid var(--border); }
 
-    .log-table-wrap { flex:1; overflow-y:auto; overflow-x:hidden; min-height:0; }
+    .log-table-wrap {
+      overflow-y: auto;
+      overflow-x: hidden;
+      max-height: 168px;   /* thead ~32px + 3 rows ~44px = 164px */
+      min-height: 60px;
+    }
+    .log-table-wrap::-webkit-scrollbar { width: 4px; }
+    .log-table-wrap::-webkit-scrollbar-track { background: transparent; }
+    .log-table-wrap::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; opacity: 0.5; }
     .log-table-wrap::-webkit-scrollbar { width:3px; }
     .log-table-wrap::-webkit-scrollbar-track { background:transparent; }
     .log-table-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
@@ -536,7 +745,7 @@
       .chart-panel { border-radius: 10px; border: 1px solid var(--border); }
       .chart-canvas-wrap { height: 130px; }
 
-      .log-panel { border-radius: 10px; border: 1px solid var(--border); max-height: 340px; }
+      .log-panel { border-radius: 10px; border: 1px solid var(--border); }
     }
 
     /* ── Mobile portrait (≤480px) ── */
@@ -603,9 +812,196 @@
       /* CCTV always visible */
       .cctv-panel { display: flex !important; }
     }
+
+    /* ═══════════════════════════════════
+       EXPAND MODAL
+    ═══════════════════════════════════ */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(4, 8, 16, 0.92);
+      backdrop-filter: blur(8px);
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      position: relative;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 100%; max-width: 1100px;
+      max-height: 92vh;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 0 60px rgba(0,180,255,0.15);
+      animation: modalIn 0.2s ease;
+    }
+    @keyframes modalIn {
+      from { opacity:0; transform:scale(0.96) translateY(10px); }
+      to   { opacity:1; transform:none; }
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,180,255,0.03);
+      flex-shrink: 0;
+    }
+    .modal-title {
+      font-family: 'Rajdhani', sans-serif; font-weight: 700;
+      font-size: 1rem; letter-spacing: 2px; color: var(--accent);
+    }
+    .modal-close {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--dim); cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; transition: all 0.15s;
+    }
+    .modal-close:hover { background: rgba(255,59,59,0.15); color: var(--danger); border-color: var(--danger); }
+    .modal-body {
+      flex: 1; overflow: auto; padding: 16px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    /* CCTV modal specific */
+    .modal-cctv-wrap {
+      position: relative; flex: 1; background: #000;
+      border-radius: 8px; overflow: hidden; min-height: 300px;
+    }
+    .modal-cctv-wrap img {
+      width: 100%; height: 100%; object-fit: contain; display: block;
+    }
+    .modal-cctv-wrap .scanline { opacity: 0.4; }
+    /* Map modal */
+    #modal-map-container { height: 460px; border-radius: 8px; overflow: hidden; }
+    /* Chart modal canvas */
+    .modal-chart-wrap { height: 340px; position: relative; }
+    #modal-chart-canvas { width: 100%; height: 100%; display: block; }
+    /* Log modal */
+    .modal-log-wrap { flex: 1; overflow-y: auto; }
+
+    /* Expand button — shown on hover over panels */
+    .expand-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: 'Share Tech Mono', monospace; font-size: 0.58rem; letter-spacing: 1px;
+      padding: 3px 8px; border-radius: 4px; cursor: pointer;
+      border: 1px solid rgba(0,180,255,0.3);
+      background: rgba(0,180,255,0.08); color: var(--accent);
+      transition: all 0.15s;
+    }
+    .expand-btn:hover { background: rgba(0,180,255,0.2); }
+    .expand-btn svg { width: 11px; height: 11px; }
+    /* CCTV expand btn — absolute position over video */
+    .cctv-expand-btn {
+      position: absolute; top: 10px; right: 10px; z-index: 10;
+      display: flex; align-items: center; gap: 4px;
+      font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; letter-spacing: 1px;
+      padding: 4px 10px; border-radius: 4px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: rgba(0,0,0,0.55); color: #fff;
+      transition: all 0.15s; backdrop-filter: blur(4px);
+    }
+    .cctv-expand-btn:hover { background: rgba(0,180,255,0.4); border-color: var(--accent); }
+    .cctv-expand-btn svg { width: 12px; height: 12px; }
+
+    /* ═══════════════════════════════════════
+       INTRO / LOGO SCREEN
+    ═══════════════════════════════════════ */
+    #intro-screen {
+      position: fixed; inset: 0; z-index: 99999;
+      background: #fefbfb;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      transition: opacity 0.8s ease;
+    }
+    #intro-screen.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #intro-screen.hidden { display: none; }
+
+    #intro-video {
+      /* ขยายความกว้างให้เต็มที่ 90% ของหน้าจอ แต่ไม่เกิน 1000px เพื่อความคมชัด */
+      width: 90%; 
+      max-width: 1000px; 
+      
+      /* ปรับความสูงสูงสุดให้เพิ่มขึ้นเป็น 85% ของหน้าจอ */
+      height: auto; 
+      max-height: 85vh;
+      
+      object-fit: contain;
+      border-radius: 8px;
+      background-color: #fefbfb;
+    }
+
+    .intro-skip-btn {
+      position: absolute; bottom: 36px; right: 36px;
+      display: flex; align-items: center; gap: 8px;
+      font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; letter-spacing: 2px;
+      padding: 10px 22px; border-radius: 6px; cursor: pointer;
+      border: 1px solid rgba(0,180,255,0.4);
+      background: rgba(0,180,255,0.1); color: #00b4ff;
+      transition: all 0.2s;
+      animation: pulse-skip 2s ease-in-out infinite;
+    }
+    .intro-skip-btn:hover {
+      background: rgba(0,180,255,0.25);
+      border-color: #00b4ff;
+      animation: none;
+    }
+    @keyframes pulse-skip {
+      0%,100% { box-shadow: 0 0 0 0 rgba(0,180,255,0.3); }
+      50%      { box-shadow: 0 0 0 8px rgba(0,180,255,0); }
+    }
+    .intro-skip-btn svg { width: 14px; height: 14px; }
+
+    .intro-progress {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 3px; background: rgba(0,180,255,0.1);
+    }
+    .intro-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00b4ff, #00ffcc);
+      width: 0%; transition: width 0.1s linear;
+    }
   </style>
 </head>
 <body>
+
+<!-- ═══════════════════════════════════════════════
+     INTRO / LOGO SCREEN
+     Replace the src with your actual video file path.
+     If hosting on a server, put the .mp4 in the same folder.
+═══════════════════════════════════════════════ -->
+<div id="intro-screen">
+  <video
+    id="intro-video"
+    autoplay
+    muted
+    playsinline
+    preload="auto"
+  >
+    <!-- Replace with your actual video filename/path -->
+    <source src="TRAMS_logo.MP4" type="video/mp4">
+    <!-- Fallback: if no video, show logo text -->
+    <div style="text-align:center;">
+      <div style="font-family:'Rajdhani',sans-serif;font-size:3rem;font-weight:700;color:#00b4ff;letter-spacing:6px;">TRAMS</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:#4a6080;letter-spacing:3px;margin-top:8px;">SMART ELO STATION</div>
+    </div>
+  </video>
+
+  <button class="intro-skip-btn" onclick="skipIntro()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/>
+    </svg>
+    ENTER DASHBOARD
+  </button>
+
+  <div class="intro-progress">
+    <div class="intro-progress-fill" id="intro-progress-fill"></div>
+  </div>
+</div>
+
 
 <!-- TOP BAR -->
 <header class="topbar">
@@ -647,6 +1043,10 @@
     </div>
     <div class="cctv-wrap">
       <img id="cctv-frame" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect fill='%23050c15'/%3E%3Ctext x='50%25' y='50%25' font-family='monospace' font-size='14' fill='%23334466' text-anchor='middle' dominant-baseline='middle'%3EWaiting for feed...%3C/text%3E%3C/svg%3E" alt="CCTV Feed"/>
+      <button class="cctv-expand-btn" onclick="openModal('cctv')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        FULLSCREEN
+      </button>
       <div class="scanline"></div>
       <div class="corner c-tl"></div>
       <div class="corner c-tr"></div>
@@ -699,6 +1099,10 @@
       <div class="map-header">
         <div class="map-title" id="lbl-station-location">STATION LOCATION</div>
         <div class="map-coords-badge">14.5832°N 100.9894°E</div>
+        <button class="expand-btn" onclick="openModal('map')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          EXPAND
+        </button>
       </div>
       <div id="map-container"></div>
     </div>
@@ -713,6 +1117,10 @@
           <button class="range-btn" onclick="setRange('24h',this)">24H</button>
           <button class="range-btn" onclick="setRange('7d',this)">7D</button>
         </div>
+        <button class="expand-btn" onclick="openModal('chart')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          EXPAND
+        </button>
       </div>
       <div class="chart-canvas-wrap">
         <canvas id="history-canvas"></canvas>
@@ -737,7 +1145,13 @@
     <!-- SENSOR LOG TABLE -->
     <div class="log-panel mobile-section" id="sec-log">
       <div class="log-header">
-        <div class="log-title" id="lbl-sensor-log">SENSOR LOG</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="log-title" id="lbl-sensor-log">SENSOR LOG</div>
+          <button class="expand-btn" onclick="openModal('log')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            EXPAND
+          </button>
+        </div>
         <div class="log-controls">
           <span class="interval-label" id="lbl-show-every">Show every</span>
           <select class="interval-select" id="interval-select" onchange="changeInterval(this.value)">
@@ -790,432 +1204,368 @@
 </div>
 
 <script>
-  const API_WATER = 'http://103.234.236.68:1880/get-water-level';
-  const API_CCTV  = 'http://103.234.236.68:1880/get-cctv';
+  const API_WATER   = 'http://103.234.236.68:1880/get-water-level';
+  const API_CCTV    = 'http://103.234.236.68:1880/get-cctv';
+  const API_HISTORY = 'http://103.234.236.68:1880/get-history';
 
-  // Thresholds (cm)
-  const T_WARN   = 50;
-  const T_DANGER = 100;
-  const T_MAX    = 200;
+  const T_WARN   = 40;
+  const T_DANGER = 50;
+  const T_MAX    = 80;
 
-  let frameCount = 0;
+  let frameCount   = 0;
   let currentLevel = null;
+  let currentRange = '1h';
+  let historyData  = [];
+  let demoMode     = true;   // set false once Node-RED /get-history is ready
 
-  // Clock
+  // ── Clock (ticks every second) ──────────────────────────────────
   function updateClock() {
     const now = new Date();
-    document.getElementById('clock').textContent = now.toLocaleTimeString('th-TH',{hour12:false});
-    document.getElementById('hud-time').textContent = now.toTimeString().slice(0,8);
-    tickLog(currentLevel);
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('th-TH', { hour12: false });
+    document.getElementById('hud-time').textContent =
+      now.toTimeString().slice(0, 8);
   }
   setInterval(updateClock, 1000);
   updateClock();
 
-  // Determine status from level
+  // ── Status helper ────────────────────────────────────────────────
   function getStatus(level) {
-    if (level >= T_DANGER) return { cls:'danger', label:'CRITICAL FLOOD ALERT', icon:'🔴', color:'#ff3b3b', barColor:'#ff3b3b', barW: Math.min(100, level/T_MAX*100) + '%' };
-    if (level >= T_WARN)   return { cls:'warn',   label:'WARNING: RISING WATER', icon:'🟡', color:'#ffb700', barColor:'#ffb700', barW: Math.min(100, level/T_MAX*100) + '%' };
-    return                        { cls:'ok',     label:'WATER LEVEL NORMAL',    icon:'🟢', color:'#00e676', barColor:'#00e676', barW: Math.min(100, level/T_MAX*100) + '%' };
+    if (level >= T_DANGER) return { cls:'danger', label:'CRITICAL FLOOD ALERT', icon:'🔴', color:'#ff3b3b', barW: Math.min(100, level/T_MAX*100) + '%' };
+    if (level >= T_WARN)   return { cls:'warn',   label:'WARNING: RISING WATER', icon:'🟡', color:'#ffb700', barW: Math.min(100, level/T_MAX*100) + '%' };
+    return                        { cls:'ok',     label:'WATER LEVEL NORMAL',   icon:'🟢', color:'#00e676', barW: Math.min(100, level/T_MAX*100) + '%' };
   }
 
   function updateUI(level) {
     const el = document.getElementById('water-level');
     el.textContent = level;
-
     const s = getStatus(level);
-
-    // Color the number
     el.style.color = s.color;
-    el.style.textShadow = `0 0 20px ${s.color}55`;
+    el.style.textShadow = '0 0 20px ' + s.color + '55';
 
-    // Water bar
     const wb = document.getElementById('water-bar');
-    wb.style.width = s.barW;
-    wb.style.background = s.color;
+    wb.style.width = s.barW; wb.style.background = s.color;
 
-    // Status dot & text
     const dot = document.getElementById('status-dot');
-    dot.className = `status-indicator ${s.cls}`;
+    dot.className = 'status-indicator ' + s.cls;
     const txt = document.getElementById('status-text');
-    txt.className = `status-text ${s.cls}`;
-    txt.textContent = s.label;
-    document.getElementById('status-since').textContent = new Date().toLocaleTimeString('th-TH',{hour12:false});
+    txt.className = 'status-text ' + s.cls;
 
-    // Station card
+    // status-text uses translated string
+    const t = i18n[currentLang];
+    const sMap = { ok: t.statusOk, warn: t.statusWarn, danger: t.statusDanger };
+    txt.textContent = sMap[s.cls];
+    document.getElementById('status-since').textContent =
+      new Date().toLocaleTimeString('th-TH', { hour12: false });
+
     document.getElementById('station-icon').textContent = s.icon;
     const sl = document.getElementById('station-label');
-    sl.textContent = s.cls === 'ok' ? 'NORMAL' : s.cls === 'warn' ? 'WARNING' : 'CRITICAL';
+    const stMap = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
+    sl.textContent = stMap[s.cls];
     sl.style.color = s.color;
 
     const sb = document.getElementById('status-bar');
-    sb.style.width = s.barW;
-    sb.style.background = s.color;
+    sb.style.width = s.barW; sb.style.background = s.color;
   }
 
-  // ══════════════════════════════════════
-  // GLOBAL LANGUAGE SYSTEM
-  // ══════════════════════════════════════
+  // ═══════════════════════════════════════
+  //  GLOBAL LANGUAGE SYSTEM
+  // ═══════════════════════════════════════
   let currentLang = 'en';
 
   const i18n = {
     en: {
-      sub:          'FLOOD MONITORING SYSTEM · NODE-RED CLOUD',
-      online:       'SYSTEM ONLINE',
-      themeDark:    'DARK',
-      themeLight:   'LIGHT',
-      cameraFeed:   'CAMERA FEED',
-      camName:      'Station Camera-01',
-      live:         'LIVE',
-      lastUpdatePfx:'Last update: ',
-      waterLevel:   'Water Level',
-      centimeters:  'CENTIMETERS',
-      stationStatus:'Station Status',
-      statusOk:     'WATER LEVEL NORMAL',
-      statusWarn:   'WARNING: RISING WATER',
-      statusDanger: 'CRITICAL FLOOD ALERT',
-      stationLoc:   'STATION LOCATION',
-      chartTitle:   'WATER LEVEL HISTORY',
-      minCm:        'MIN cm',
-      avgCm:        'AVG cm',
-      maxCm:        'MAX cm',
-      sensorLog:    'SENSOR LOG',
-      showEvery:    'Show every',
-      records:      'records',
-      datetime:     'Date / Time',
-      level:        'Level (cm)',
-      status:       'Status',
-      nextUpdate:   'Next update:',
-      waiting:      'Waiting for sensor data...',
-      clear:        'CLEAR',
-      statusNormal: 'NORMAL',
-      statusWarning:'WARNING',
-      statusCrit:   'CRITICAL',
-      confirmClear: 'Clear all records?',
-      bnavData:     'DATA',
-      bnavMap:      'MAP',
-      bnavGraph:    'GRAPH',
-      bnavLog:      'LOG',
+      sub:           'FLOOD MONITORING SYSTEM · NODE-RED CLOUD',
+      online:        'SYSTEM ONLINE',
+      themeDark:     'DARK',  themeLight: 'LIGHT',
+      cameraFeed:    'CAMERA FEED',
+      camName:       'Station Camera-01',
+      live:          'LIVE',
+      lastUpdatePfx: 'Last update: ',
+      waterLevel:    'Water Level',
+      centimeters:   'CENTIMETERS',
+      stationStatus: 'Station Status',
+      statusOk:      'WATER LEVEL NORMAL',
+      statusWarn:    'WARNING: RISING WATER',
+      statusDanger:  'CRITICAL FLOOD ALERT',
+      stationLoc:    'STATION LOCATION',
+      chartTitle:    'WATER LEVEL HISTORY',
+      minCm: 'MIN cm', avgCm: 'AVG cm', maxCm: 'MAX cm',
+      sensorLog:     'SENSOR LOG',
+      showEvery:     'Show every',
+      records:       'records',
+      datetime:      'Date / Time',
+      level:         'Level (cm)',
+      status:        'Status',
+      nextUpdate:    'Next update:',
+      waiting:       'Waiting for sensor data...',
+      clear:         'CLEAR',
+      statusNormal:  'NORMAL', statusWarning: 'WARNING', statusCrit: 'CRITICAL',
+      confirmClear:  'Clear all records?',
+      bnavData: 'DATA', bnavMap: 'MAP', bnavGraph: 'GRAPH', bnavLog: 'LOG',
       options: ['1 min','5 min','15 min','30 min','1 hr','6 hr','12 hr','1 day'],
     },
     th: {
-      sub:          'ระบบติดตามน้ำท่วม · NODE-RED CLOUD',
-      online:       'ระบบออนไลน์',
-      themeDark:    'มืด',
-      themeLight:   'สว่าง',
-      cameraFeed:   'กล้อง CCTV',
-      camName:      'กล้องสถานี-01',
-      live:         'สด',
-      lastUpdatePfx:'อัปเดตล่าสุด: ',
-      waterLevel:   'ระดับน้ำ',
-      centimeters:  'เซนติเมตร',
-      stationStatus:'สถานะสถานี',
-      statusOk:     'ระดับน้ำปกติ',
-      statusWarn:   'คำเตือน: น้ำกำลังสูงขึ้น',
-      statusDanger: 'เตือนภัย: น้ำท่วม',
-      stationLoc:   'ตำแหน่งสถานี',
-      chartTitle:   'กราฟระดับน้ำ',
-      minCm:        'ต่ำสุด cm',
-      avgCm:        'เฉลี่ย cm',
-      maxCm:        'สูงสุด cm',
-      sensorLog:    'บันทึกระดับน้ำ',
-      showEvery:    'แสดงทุก',
-      records:      'รายการ',
-      datetime:     'วันที่ / เวลา',
-      level:        'ระดับน้ำ (cm)',
-      status:       'สถานะ',
-      nextUpdate:   'อัปเดตถัดไป:',
-      waiting:      'รอข้อมูลจาก sensor...',
-      clear:        'ล้างข้อมูล',
-      statusNormal: 'ปกติ',
-      statusWarning:'เฝ้าระวัง',
-      statusCrit:   'วิกฤต',
-      confirmClear: 'ล้างข้อมูลทั้งหมด?',
-      bnavData:     'ข้อมูล',
-      bnavMap:      'แผนที่',
-      bnavGraph:    'กราฟ',
-      bnavLog:      'บันทึก',
+      sub:           'ระบบติดตามน้ำท่วม · NODE-RED CLOUD',
+      online:        'ระบบออนไลน์',
+      themeDark:     'มืด',  themeLight: 'สว่าง',
+      cameraFeed:    'กล้อง CCTV',
+      camName:       'กล้องสถานี-01',
+      live:          'สด',
+      lastUpdatePfx: 'อัปเดตล่าสุด: ',
+      waterLevel:    'ระดับน้ำ',
+      centimeters:   'เซนติเมตร',
+      stationStatus: 'สถานะสถานี',
+      statusOk:      'ระดับน้ำปกติ',
+      statusWarn:    'คำเตือน: น้ำกำลังสูงขึ้น',
+      statusDanger:  'เตือนภัย: น้ำท่วม',
+      stationLoc:    'ตำแหน่งสถานี',
+      chartTitle:    'กราฟระดับน้ำ',
+      minCm: 'ต่ำสุด cm', avgCm: 'เฉลี่ย cm', maxCm: 'สูงสุด cm',
+      sensorLog:     'บันทึกระดับน้ำ',
+      showEvery:     'แสดงทุก',
+      records:       'รายการ',
+      datetime:      'วันที่ / เวลา',
+      level:         'ระดับน้ำ (cm)',
+      status:        'สถานะ',
+      nextUpdate:    'อัปเดตถัดไป:',
+      waiting:       'รอข้อมูลจาก sensor...',
+      clear:         'ล้างข้อมูล',
+      statusNormal:  'ปกติ', statusWarning: 'เฝ้าระวัง', statusCrit: 'วิกฤต',
+      confirmClear:  'ล้างข้อมูลทั้งหมด?',
+      bnavData: 'ข้อมูล', bnavMap: 'แผนที่', bnavGraph: 'กราฟ', bnavLog: 'บันทึก',
       options: ['1 นาที','5 นาที','15 นาที','30 นาที','1 ชั่วโมง','6 ชั่วโมง','12 ชั่วโมง','1 วัน'],
     }
   };
 
   function setLang(lang) {
     currentLang = lang;
-    document.querySelectorAll('.lang-btn').forEach(b => {
+    document.querySelectorAll('.lang-btn').forEach(function(b) {
       b.classList.toggle('active',
         (lang === 'th' && b.textContent === 'TH') ||
         (lang === 'en' && b.textContent === 'EN')
       );
     });
     applyLang();
-    renderLogTable();
+    renderLogTable(historyData);
   }
 
   function applyLang() {
-    const t = i18n[currentLang];
-    const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    var t = i18n[currentLang];
+    function set(id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; }
+    set('lbl-sub',             t.sub);
+    set('lbl-online',          t.online);
+    set('theme-label',         document.body.classList.contains('light') ? t.themeLight : t.themeDark);
+    set('lbl-camera-feed',     t.cameraFeed);
+    set('lbl-cam-name',        t.camName);
+    set('scrubber-left',       t.live);
+    set('lbl-water-level',     t.waterLevel);
+    set('lbl-centimeters',     t.centimeters);
+    set('lbl-station-status',  t.stationStatus);
+    set('lbl-station-location',t.stationLoc);
+    set('lbl-chart-title',     t.chartTitle);
+    set('lbl-min-cm',          t.minCm);
+    set('lbl-avg-cm',          t.avgCm);
+    set('lbl-max-cm',          t.maxCm);
+    set('lbl-sensor-log',      t.sensorLog);
+    set('lbl-show-every',      t.showEvery);
+    set('th-datetime',         t.datetime);
+    set('th-level',            t.level);
+    set('th-status',           t.status);
+    set('lbl-clear',           t.clear);
+    set('lbl-bnav-data',       t.bnavData);
+    set('lbl-bnav-map',        t.bnavMap);
+    set('lbl-bnav-graph',      t.bnavGraph);
+    set('lbl-bnav-log',        t.bnavLog);
+    set('log-count',           historyData.length + ' ' + t.records);
 
-    set('lbl-sub',              t.sub);
-    set('lbl-online',           t.online);
-    set('theme-label',          document.body.classList.contains('light') ? t.themeLight : t.themeDark);
-    set('lbl-camera-feed',      t.cameraFeed);
-    set('lbl-cam-name',         t.camName);
-    set('scrubber-left',        t.live);
-    set('lbl-water-level',      t.waterLevel);
-    set('lbl-centimeters',      t.centimeters);
-    set('lbl-station-status',   t.stationStatus);
-    set('lbl-station-location', t.stationLoc);
-    set('lbl-chart-title',      t.chartTitle);
-    set('lbl-min-cm',           t.minCm);
-    set('lbl-avg-cm',           t.avgCm);
-    set('lbl-max-cm',           t.maxCm);
-    set('lbl-sensor-log',       t.sensorLog);
-    set('lbl-show-every',       t.showEvery);
-    set('th-datetime',          t.datetime);
-    set('th-level',             t.level);
-    set('th-status',            t.status);
-    set('lbl-clear',            t.clear);
-    set('lbl-bnav-data',        t.bnavData);
-    set('lbl-bnav-map',         t.bnavMap);
-    set('lbl-bnav-graph',       t.bnavGraph);
-    set('lbl-bnav-log',         t.bnavLog);
-
-    // Count badge
-    set('log-count', logRecords.length + ' ' + t.records);
-
-    // Empty message
-    const emptyMsg = document.getElementById('log-empty-msg');
+    var emptyMsg = document.getElementById('log-empty-msg');
     if (emptyMsg) emptyMsg.textContent = t.waiting;
 
-    // Dropdown options
-    const sel = document.getElementById('interval-select');
-    ['1','5','15','30','60','360','720','1440'].forEach((v, i) => {
-      const opt = sel && sel.querySelector('option[value="' + v + '"]');
+    // Dropdown option labels
+    var sel = document.getElementById('interval-select');
+    ['1','5','15','30','60','360','720','1440'].forEach(function(v, i) {
+      var opt = sel && sel.querySelector('option[value="' + v + '"]');
       if (opt) opt.textContent = t.options[i];
     });
 
-    // Status bar text (if level is known)
     if (currentLevel !== null) {
-      const s = getStatus(currentLevel);
-      const sMap = { ok: t.statusOk, warn: t.statusWarn, danger: t.statusDanger };
-      set('status-text', sMap[s.cls]);
-      const stMap = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
-      set('station-label', stMap[s.cls]);
+      var s = getStatus(currentLevel);
+      var sMap  = { ok: t.statusOk,   warn: t.statusWarn,    danger: t.statusDanger };
+      var stMap = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
+      set('status-text',    sMap[s.cls]);
+      set('station-label',  stMap[s.cls]);
     }
 
-    // Last update timestamp prefix
-    const tsEl = document.getElementById('update-ts');
+    var tsEl = document.getElementById('update-ts');
     if (tsEl) {
-      const raw = tsEl.getAttribute('data-time') || '';
+      var raw = tsEl.getAttribute('data-time') || '';
       tsEl.textContent = raw ? t.lastUpdatePfx + raw : t.lastUpdatePfx + '--';
     }
-
-    updateNextTick();
   }
 
-  // ─── SENSOR LOG TABLE ───
-  let logIntervalMinutes = 1;
-  let logRecords = [];
-  let logCountdown = logIntervalMinutes * 60;
+  // ═══════════════════════════════════════
+  //  SENSOR LOG TABLE
+  //  — data comes from historyData (InfluxDB)
+  //  — interval dropdown filters rows by N-minute spacing
+  // ═══════════════════════════════════════
 
-  function changeInterval(val) {
-    logIntervalMinutes = parseInt(val);
-    logCountdown = logIntervalMinutes * 60;
-    updateNextTick();
+  /**
+   * parseTimeToMinutes("14:35") → 875
+   * Handles "HH:MM" and "HH:MM:SS" formats.
+   * Returns null if unparseable (e.g. date labels like "15 ม.ค.").
+   */
+  function parseTimeToMinutes(timeStr) {
+    if (!timeStr) return null;
+    var m = timeStr.match(/^(\d{1,2}):(\d{2})/);
+    return m ? parseInt(m[1]) * 60 + parseInt(m[2]) : null;
   }
 
-  function updateNextTick() {
-    const t = i18n[currentLang];
-    const mins = Math.floor(logCountdown / 60);
-    const secs = logCountdown % 60;
-    document.getElementById('log-next-tick').textContent =
-      `${t.nextUpdate} ${mins > 0 ? mins + 'm ' : ''}${String(secs).padStart(2,'0')}s`;
-  }
+  /**
+   * filterByInterval(data, intervalMins)
+   * Picks one data point every `intervalMins` minutes.
+   * When timestamps are not parseable (7d range uses date labels),
+   * falls back to evenly spaced index sampling.
+   */
+  /**
+   * filterByInterval(data, intervalMins)
+   * Always works on a chronologically sorted copy (oldest first).
+   * Returns array in oldest-first order; renderLogTable reverses it for display.
+   */
+  function filterByInterval(data, intervalMins) {
+    if (!data || data.length === 0) return [];
 
-  function tickLog(level) {
-    if (level === null) return;
-    logCountdown--;
-    if (logCountdown <= 0) {
-      addLogRecord(level);
-      logCountdown = logIntervalMinutes * 60;
-    }
-    updateNextTick();
-  }
-
-  function addLogRecord(level) {
-    const now = new Date();
-    const s = getStatus(level);
-    logRecords.unshift({
-      ts: now,
-      dateStr: now.toLocaleDateString('th-TH', {day:'2-digit', month:'2-digit', year:'2-digit'}),
-      timeStr: now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false}),
-      level, cls: s.cls,
+    // Sort a copy oldest→newest using parsed minutes (stable sort)
+    var sorted = data.slice().sort(function(a, b) {
+      var ma = parseTimeToMinutes(a.time);
+      var mb = parseTimeToMinutes(b.time);
+      if (ma === null || mb === null) return 0; // keep original order if unparseable
+      // Handle midnight rollover: if diff > 720 assume day boundary
+      var diff = ma - mb;
+      if (diff > 720)  diff -= 1440;
+      if (diff < -720) diff += 1440;
+      return diff;
     });
-    if (logRecords.length > 200) logRecords.pop();
-    renderLogTable();
+
+    if (intervalMins <= 1) return sorted; // show all, sorted
+
+    var filtered = [];
+    var lastMins = null;
+    var allParseable = true;
+
+    for (var i = 0; i < sorted.length; i++) {
+      var mins = parseTimeToMinutes(sorted[i].time);
+      if (mins === null) { allParseable = false; break; }
+      // Handle midnight rollover
+      var gap = lastMins === null ? intervalMins : (mins - lastMins + 1440) % 1440;
+      if (lastMins === null || gap >= intervalMins) {
+        filtered.push(sorted[i]);
+        lastMins = mins;
+      }
+    }
+
+    if (!allParseable || filtered.length === 0) {
+      var step = Math.max(1, Math.round(intervalMins));
+      filtered = sorted.filter(function(_, idx) { return idx % step === 0; });
+    }
+
+    return filtered.length > 0 ? filtered : [sorted[sorted.length - 1]];
   }
 
-  function renderLogTable() {
-    const t = i18n[currentLang];
-    const tbody = document.getElementById('log-tbody');
-    const countEl = document.getElementById('log-count');
-    countEl.textContent = logRecords.length + ' ' + t.records;
+  /**
+   * changeInterval — called by dropdown onchange
+   * Re-renders table immediately using existing historyData
+   */
+  function changeInterval(val) {
+    renderLogTable(historyData);
+  }
 
-    if (logRecords.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" id="log-empty-msg" style="text-align:center;padding:24px;color:var(--dim);font-size:0.75rem;">${t.waiting}</td></tr>`;
+  /**
+   * renderLogTable(data)
+   * data = historyData array: [{time:"HH:MM", value:42.5}, ...]
+   */
+  function renderLogTable(data) {
+    var t       = i18n[currentLang];
+    var tbody   = document.getElementById('log-tbody');
+    var countEl = document.getElementById('log-count');
+
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" id="log-empty-msg" style="text-align:center;padding:24px;color:var(--dim);font-size:0.75rem;">' + t.waiting + '</td></tr>';
+      countEl.textContent = '0 ' + t.records;
       return;
     }
 
-    const statusLabel = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
-    tbody.innerHTML = logRecords.map((r, i) => `
-      <tr class="${i === 0 ? 'row-new' : ''}">
-        <td class="td-time">${logRecords.length - i}</td>
-        <td class="td-time">${r.dateStr} ${r.timeStr}</td>
-        <td class="td-level ${r.cls}">${r.level}</td>
-        <td><span class="td-status-pill ${r.cls}"><span class="pill-dot"></span>${statusLabel[r.cls] || r.cls}</span></td>
-      </tr>
-    `).join('');
-  }
+    var intervalMins = parseInt(document.getElementById('interval-select').value) || 1;
+    var filtered     = filterByInterval(data, intervalMins);
 
-  function initLogFirstRecord(level) {
-    if (logRecords.length === 0) addLogRecord(level);
+    countEl.textContent = filtered.length + ' ' + t.records;
+
+    var statusLabel = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
+
+    // Newest on top
+    var rows = filtered.slice().reverse();
+    tbody.innerHTML = rows.map(function(r, i) {
+      var s = getStatus(r.value);
+      return '<tr class="' + (i === 0 ? 'row-new' : '') + '">' +
+        '<td class="td-time">' + (rows.length - i) + '</td>' +
+        '<td class="td-time">' + r.time + '</td>' +
+        '<td class="td-level ' + s.cls + '">' + r.value + '</td>' +
+        '<td><span class="td-status-pill ' + s.cls + '"><span class="pill-dot"></span>' +
+        (statusLabel[s.cls] || s.cls) + '</span></td></tr>';
+    }).join('');
   }
 
   function exportLog() {
-    const t = i18n[currentLang];
-    const header = `#,${t.datetime},${t.level},${t.status}\n`;
-    const rows = [...logRecords].reverse().map((r, i) =>
-      `${i+1},"${r.dateStr} ${r.timeStr}",${r.level},${r.cls}`
-    ).join('\n');
-    const blob = new Blob(['\uFEFF' + header + rows], {type:'text/csv;charset=utf-8'});
-    const a = document.createElement('a');
+    var t = i18n[currentLang];
+    var intervalMins = parseInt(document.getElementById('interval-select').value) || 1;
+    var filtered = filterByInterval(historyData, intervalMins);
+    var header = '#,' + t.datetime + ',' + t.level + ',' + t.status + '';
+    var rows = filtered.slice().reverse().map(function(r, i) {
+      return (i+1) + ',"' + r.time + '",' + r.value + ',' + getStatus(r.value).cls;
+    }).join('');
+    var blob = new Blob(['﻿' + header + rows], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `sensor-log-${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = 'sensor-log-' + new Date().toISOString().slice(0,10) + '.csv';
     a.click();
   }
 
   function clearLog() {
-    const t = i18n[currentLang];
+    var t = i18n[currentLang];
     if (!confirm(t.confirmClear)) return;
-    logRecords = [];
-    renderLogTable();
+    historyData = [];
+    renderLogTable(historyData);
   }
 
-  function switchCamera() { alert('📷 No additional cameras configured.'); }
-  function callAuthority() { alert('📞 Contacting Flood Control Authority...'); }
-  function clearAlerts() { clearLog(); }
+  // ═══════════════════════════════════════
+  //  CHART
+  // ═══════════════════════════════════════
 
-  // Fetch water level
-  async function fetchWater() {
-    try {
-      const res  = await fetch(API_WATER);
-      const data = await res.json();
-      const lvl  = parseFloat(data.data.water_level) || 0;
-      currentLevel = lvl;
-      updateUI(lvl);
-      pushToChart(lvl);
-      initLogFirstRecord(lvl);
-    } catch(e) {
-      console.warn('Water fetch failed:', e);
-    }
-  }
-
-  // Fetch CCTV
-  async function fetchCCTV() {
-    try {
-      const res  = await fetch(API_CCTV);
-      const data = await res.json();
-      if (data.image_base64) {
-        document.getElementById('cctv-frame').src = data.image_base64;
-        frameCount++;
-        document.getElementById('frame-counter').textContent = `FRAME ${frameCount}/∞`;
-        const _t = new Date().toLocaleTimeString('th-TH',{hour12:false});
-        const _tsEl = document.getElementById('update-ts');
-        _tsEl.setAttribute('data-time', _t);
-        _tsEl.textContent = i18n[currentLang].lastUpdatePfx + _t;
-      }
-    } catch(e) {
-      console.warn('CCTV fetch failed:', e);
-    }
-  }
-
-  function clearAlerts() { clearLog(); }
-
-  // ─── MAP ───
-  // พิกัด Smart ELO Station (แก้ lat/lng ตามตำแหน่งจริง)
-  const STATION_LAT = 14.5832;
-  const STATION_LNG = 100.9894;
-
-  const map = L.map('map-container', {
-    center: [STATION_LAT, STATION_LNG],
-    zoom: 14,
-    zoomControl: false,
-    attributionControl: true,
-    scrollWheelZoom: false,
-    dragging: false,
-  });
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap',
-    maxZoom: 19,
-  }).addTo(map);
-
-  // Custom pulsing marker
-  const pulseIcon = L.divIcon({
-    className: '',
-    html: `<div style="
-      width:16px;height:16px;border-radius:50%;
-      background:#00b4ff;
-      box-shadow:0 0 0 0 rgba(0,180,255,0.8);
-      animation:map-ping 1.5s ease-out infinite;
-      border:2px solid #00ffcc;
-    "></div>
-    <style>
-      @keyframes map-ping {
-        0%   { box-shadow:0 0 0 0   rgba(0,180,255,0.8); }
-        70%  { box-shadow:0 0 0 16px transparent; }
-        100% { box-shadow:0 0 0 0   transparent; }
-      }
-    </style>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
-  });
-
-  L.marker([STATION_LAT, STATION_LNG], { icon: pulseIcon })
-    .addTo(map)
-    .bindPopup('<b style="font-family:Rajdhani,sans-serif;color:#00b4ff">Smart ELO Station</b><br><small style="font-family:Share Tech Mono,monospace;color:#4a6080">Water Level Monitor</small>')
-    .openPopup();
-
-  // ─── HISTORY CHART ───
-  // Node-RED endpoint ที่จะ query InfluxDB (เพิ่มเองทีหลัง)
-  // Expected response: { data: [ { time: "HH:MM", value: 42.5 }, ... ] }
-  const API_HISTORY = 'http://103.234.236.68:1880/get-history';
-
-  let currentRange = '1h';
-  let historyData  = [];   // { time, value }[]
-  let demoMode     = true; // เปลี่ยนเป็น false เมื่อ endpoint พร้อม
-
+  /**
+   * setRange — chart range buttons (1H / 6H / 24H / 7D)
+   * Fetches new data from API and re-renders BOTH chart AND table.
+   */
   function setRange(range, btn) {
     currentRange = range;
-    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.range-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
-    fetchHistory();
+    fetchHistory();   // new data → renderChart + renderLogTable
   }
 
-  // Generate demo data for testing before InfluxDB is ready
   function genDemoData(range) {
-    const pts = { '1h':20, '6h':36, '24h':48, '7d':56 }[range] || 20;
-    const now = Date.now();
-    const spans = { '1h':3600, '6h':21600, '24h':86400, '7d':604800 };
-    const span = (spans[range] || 3600) * 1000;
-    let base = 30, arr = [];
-    for (let i = 0; i < pts; i++) {
-      base += (Math.random() - 0.46) * 8;
-      base = Math.max(5, Math.min(150, base));
-      const t = new Date(now - span + (span / pts) * i);
+    var pts   = { '1h': 60, '6h': 72, '24h': 96, '7d': 84 }[range] || 60;
+    var spans = { '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800 };
+    var span  = (spans[range] || 3600) * 1000;
+    var now   = Date.now();
+    var base  = 30, arr = [];
+    for (var i = 0; i < pts; i++) {
+      base += (Math.random() - 0.46) * 5;
+      base = Math.max(5, Math.min(75, base));
+      var ts = new Date(now - span + (span / pts) * i);
       arr.push({
         time: range === '7d'
-          ? t.toLocaleDateString('th-TH',{day:'numeric',month:'short'})
-          : t.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false}),
+          ? ts.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+          : ts.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false }),
         value: Math.round(base * 10) / 10
       });
     }
@@ -1223,223 +1573,489 @@
   }
 
   async function fetchHistory() {
-    if (demoMode) {
-      historyData = genDemoData(currentRange);
-      renderChart(historyData);
-      return;
-    }
     try {
-      const res  = await fetch(`${API_HISTORY}?range=${currentRange}`);
-      const json = await res.json();
-      historyData = json.data || [];
-      renderChart(historyData);
+      var res  = await fetch(API_HISTORY + '?range=' + currentRange);
+      var json = await res.json();
+      if (json.data && json.data.length > 0) {
+        historyData = json.data;
+        demoMode = false;
+      } else {
+        throw new Error('empty');
+      }
     } catch(e) {
-      console.warn('History fetch failed, using demo data:', e);
-      historyData = genDemoData(currentRange);
-      renderChart(historyData);
+      if (demoMode) {
+        historyData = genDemoData(currentRange);
+      }
+      console.warn('fetchHistory:', e.message);
     }
+    renderChart(historyData);
+    renderLogTable(historyData);
   }
 
   function renderChart(data) {
     if (!data || data.length === 0) return;
-
-    const canvas = document.getElementById('history-canvas');
-    const wrap   = canvas.parentElement;
+    var canvas = document.getElementById('history-canvas');
+    var wrap   = canvas.parentElement;
     canvas.width  = wrap.clientWidth  * devicePixelRatio;
     canvas.height = wrap.clientHeight * devicePixelRatio;
-    const ctx = canvas.getContext('2d');
+    var ctx = canvas.getContext('2d');
     ctx.scale(devicePixelRatio, devicePixelRatio);
-    const W = wrap.clientWidth, H = wrap.clientHeight;
+    var W = wrap.clientWidth, H = wrap.clientHeight;
 
-    // Dynamic colors based on theme
-    const isLight = document.body.classList.contains('light');
-    const accentColor  = isLight ? '#0077cc' : '#00b4ff';
-    const accent2Color = isLight ? '#00aa88' : '#00ffcc';
-    const gridColor    = isLight ? 'rgba(0,120,200,0.08)' : 'rgba(0,180,255,0.06)';
-    const axisColor    = isLight ? '#7a96b0' : '#4a6080';
-    const areaTop      = isLight ? 'rgba(0,120,200,0.15)' : 'rgba(0,180,255,0.25)';
-    const areaBot      = isLight ? 'rgba(0,120,200,0.02)' : 'rgba(0,180,255,0.04)';
+    var isLight    = document.body.classList.contains('light');
+    var accentColor  = isLight ? '#0077cc' : '#00b4ff';
+    var accent2Color = isLight ? '#00aa88' : '#00ffcc';
+    var gridColor    = isLight ? 'rgba(0,120,200,0.08)' : 'rgba(0,180,255,0.06)';
+    var axisColor    = isLight ? '#7a96b0' : '#4a6080';
+    var areaTop      = isLight ? 'rgba(0,120,200,0.15)' : 'rgba(0,180,255,0.25)';
+    var areaBot      = isLight ? 'rgba(0,120,200,0.02)' : 'rgba(0,180,255,0.04)';
 
-    const vals   = data.map(d => d.value);
-    const minVal = Math.min(...vals);
-    const maxVal = Math.max(...vals);
-    const range  = maxVal - minVal || 1;
-    const pad    = { top:10, right:8, bottom:16, left:32 };
-    const gW = W - pad.left - pad.right;
-    const gH = H - pad.top  - pad.bottom;
+    var vals   = data.map(function(d) { return d.value; });
+    var minVal = 0;    // fixed Y axis
+    var maxVal = 80;   // fixed Y axis
+    var range  = 80;
+    var pad    = { top: 14, right: 8, bottom: 20, left: 36 };
+    var gW = W - pad.left - pad.right;
+    var gH = H - pad.top  - pad.bottom;
 
-    const toX = i => pad.left + (i / (data.length - 1)) * gW;
-    const toY = v => pad.top  + (1 - (v - minVal) / range) * gH;
+    function toX(i) { return pad.left + (i / (data.length - 1)) * gW; }
+    function toY(v) { return pad.top  + (1 - Math.max(0,Math.min(80,v)) / 80) * gH; }
 
-    // Background
     ctx.clearRect(0, 0, W, H);
 
     // Threshold lines
-    const drawThresh = (cm, color, label) => {
-      if (cm < minVal || cm > maxVal) return;
-      const y = toY(cm);
+    function drawThresh(cm, color, label) {
+      // Always draw — Y axis is fixed 0-80
+      var y = toY(cm);
       ctx.save();
       ctx.setLineDash([4, 4]);
       ctx.strokeStyle = color + '66';
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
-      ctx.fillStyle = color; ctx.font = `${9 * devicePixelRatio / devicePixelRatio}px Share Tech Mono,monospace`;
+      ctx.fillStyle = color;
+      ctx.font = '9px Share Tech Mono,monospace';
       ctx.fillText(label, pad.left + 2, y - 3);
       ctx.restore();
-    };
-    drawThresh(50,  '#ffb700', 'WARN');
-    drawThresh(100, '#ff3b3b', 'CRIT');
+    }
+    // Fixed threshold at 50 cm — always visible dashed red line
+    drawThresh(50, '#ff3b3b', '⚠ 50 cm');
 
     // Y-axis gridlines
     ctx.save();
     ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
-    for (let i = 0; i <= 4; i++) {
-      const y = pad.top + (i / 4) * gH;
-      ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
-      const lbl = Math.round(maxVal - (i / 4) * range);
+    for (var gi = 0; gi <= 4; gi++) {
+      var gy = pad.top + (gi / 4) * gH;
+      ctx.beginPath(); ctx.moveTo(pad.left, gy); ctx.lineTo(W - pad.right, gy); ctx.stroke();
       ctx.fillStyle = axisColor;
-      ctx.font = `${8}px Share Tech Mono,monospace`;
+      ctx.font = '8px Share Tech Mono,monospace';
       ctx.textAlign = 'right';
-      ctx.fillText(lbl, pad.left - 4, y + 3);
+      ctx.fillText(Math.round(maxVal - (gi / 4) * range), pad.left - 4, gy + 3);
     }
     ctx.restore();
 
     // Area fill
-    const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + gH);
-    grad.addColorStop(0,   areaTop);
-    grad.addColorStop(0.6, areaBot);
-    grad.addColorStop(1,   'transparent');
+    var grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + gH);
+    grad.addColorStop(0, areaTop); grad.addColorStop(0.6, areaBot); grad.addColorStop(1, 'transparent');
     ctx.beginPath();
     ctx.moveTo(toX(0), toY(data[0].value));
-    for (let i = 1; i < data.length; i++) {
-      const x0 = toX(i-1), y0 = toY(data[i-1].value);
-      const x1 = toX(i),   y1 = toY(data[i].value);
-      const cx = (x0 + x1) / 2;
-      ctx.bezierCurveTo(cx, y0, cx, y1, x1, y1);
+    for (var i = 1; i < data.length; i++) {
+      var cx = (toX(i-1) + toX(i)) / 2;
+      ctx.bezierCurveTo(cx, toY(data[i-1].value), cx, toY(data[i].value), toX(i), toY(data[i].value));
     }
     ctx.lineTo(toX(data.length - 1), pad.top + gH);
     ctx.lineTo(toX(0), pad.top + gH);
     ctx.closePath();
-    ctx.fillStyle = grad;
-    ctx.fill();
+    ctx.fillStyle = grad; ctx.fill();
 
     // Line
     ctx.beginPath();
     ctx.moveTo(toX(0), toY(data[0].value));
-    for (let i = 1; i < data.length; i++) {
-      const x0 = toX(i-1), y0 = toY(data[i-1].value);
-      const x1 = toX(i),   y1 = toY(data[i].value);
-      const cx = (x0 + x1) / 2;
-      ctx.bezierCurveTo(cx, y0, cx, y1, x1, y1);
+    for (var i = 1; i < data.length; i++) {
+      var cx = (toX(i-1) + toX(i)) / 2;
+      ctx.bezierCurveTo(cx, toY(data[i-1].value), cx, toY(data[i].value), toX(i), toY(data[i].value));
     }
-    const lineGrad = ctx.createLinearGradient(pad.left, 0, W - pad.right, 0);
-    lineGrad.addColorStop(0, accentColor);
-    lineGrad.addColorStop(1, accent2Color);
-    ctx.strokeStyle = lineGrad;
-    ctx.lineWidth = 2;
-    ctx.lineJoin = 'round';
-    ctx.stroke();
+    var lineGrad = ctx.createLinearGradient(pad.left, 0, W - pad.right, 0);
+    lineGrad.addColorStop(0, accentColor); lineGrad.addColorStop(1, accent2Color);
+    ctx.strokeStyle = lineGrad; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
 
-    // Last point dot + glow
-    const lx = toX(data.length - 1), ly = toY(data[data.length - 1].value);
-    ctx.save();
-    ctx.shadowColor = accentColor; ctx.shadowBlur = 10;
+    // Last-point dot
+    var lx = toX(data.length - 1), ly = toY(data[data.length - 1].value);
+    ctx.save(); ctx.shadowColor = accentColor; ctx.shadowBlur = 10;
     ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI * 2);
-    ctx.fillStyle = accent2Color; ctx.fill();
-    ctx.restore();
+    ctx.fillStyle = accent2Color; ctx.fill(); ctx.restore();
 
-    // X-axis labels (show ~5 evenly spaced)
-    const labelStep = Math.max(1, Math.floor(data.length / 5));
-    const labels = [];
-    for (let i = 0; i < data.length; i += labelStep) labels.push(data[i].time);
-    document.getElementById('chart-labels').innerHTML =
-      labels.map(l => `<span>${l}</span>`).join('');
+    // X labels
+    var labelStep = Math.max(1, Math.floor(data.length / 5));
+    var labels = [];
+    for (var i = 0; i < data.length; i += labelStep) labels.push(data[i].time);
+    document.getElementById('chart-labels').innerHTML = labels.map(function(l) { return '<span>' + l + '</span>'; }).join('');
 
     // Stats
-    const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
-    document.getElementById('stat-min').textContent = Math.round(minVal);
-    document.getElementById('stat-avg').textContent = Math.round(avg * 10) / 10;
-    document.getElementById('stat-max').textContent = Math.round(maxVal);
-
-    // Color max stat if above threshold
-    const maxEl = document.getElementById('stat-max');
-    maxEl.style.color = maxVal >= 100 ? '#ff3b3b' : maxVal >= 50 ? '#ffb700' : 'var(--accent)';
+    var realVals = data.map(function(d){return d.value;});
+    var realMin  = Math.round(Math.min.apply(null,realVals));
+    var realAvg  = Math.round(realVals.reduce(function(a,b){return a+b;},0)/realVals.length*10)/10;
+    var realMax  = Math.round(Math.max.apply(null,realVals));
+    document.getElementById('stat-min').textContent = realMin;
+    document.getElementById('stat-avg').textContent = realAvg;
+    document.getElementById('stat-max').textContent = realMax;
+    var maxEl = document.getElementById('stat-max');
+    maxEl.style.color = realMax >= T_DANGER ? '#ff3b3b' : realMax >= T_WARN ? '#ffb700' : 'var(--accent)';
   }
 
-  // Push live reading into chart buffer (max 60 pts)
-  function pushToChart(level) {
-    if (demoMode) return; // demo generates own data
-    const now = new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false});
-    historyData.push({ time: now, value: level });
-    if (historyData.length > 60) historyData.shift();
-    renderChart(historyData);
+  // ═══════════════════════════════════════
+  //  DATA FETCHERS
+  // ═══════════════════════════════════════
+  async function fetchWater() {
+    try {
+      var res  = await fetch(API_WATER);
+      var data = await res.json();
+      var lvl  = parseFloat(data.data.water_level) || 0;
+      currentLevel = lvl;
+      updateUI(lvl);
+    } catch(e) { console.warn('Water fetch failed:', e); }
   }
 
-  // ─── THEME TOGGLE ───
+  async function fetchCCTV() {
+    try {
+      var res  = await fetch(API_CCTV);
+      var data = await res.json();
+      if (data.image_base64) {
+        document.getElementById('cctv-frame').src = data.image_base64;
+        frameCount++;
+        document.getElementById('frame-counter').textContent = 'FRAME ' + frameCount + '/∞';
+        var _t   = new Date().toLocaleTimeString('th-TH', { hour12: false });
+        var _tsEl = document.getElementById('update-ts');
+        _tsEl.setAttribute('data-time', _t);
+        _tsEl.textContent = i18n[currentLang].lastUpdatePfx + _t;
+      }
+    } catch(e) { console.warn('CCTV fetch failed:', e); }
+  }
+
+  // ═══════════════════════════════════════
+  //  THEME TOGGLE
+  // ═══════════════════════════════════════
   function toggleTheme() {
-    const isLight = document.body.classList.toggle('light');
-    const t = i18n[currentLang];
+    var isLight = document.body.classList.toggle('light');
+    var t = i18n[currentLang];
     document.getElementById('theme-label').textContent = isLight ? t.themeLight : t.themeDark;
     localStorage.setItem('elo-theme', isLight ? 'light' : 'dark');
-    // Re-render chart with new colors
-    if (historyData.length) setTimeout(() => renderChart(historyData), 50);
+    if (historyData.length) setTimeout(function(){ renderChart(historyData); }, 50);
   }
-  // Restore saved preference
   if (localStorage.getItem('elo-theme') === 'light') {
     document.body.classList.add('light');
-    document.addEventListener('DOMContentLoaded', () => {
-      const lbl = document.getElementById('theme-label');
-      if (lbl) lbl.textContent = 'LIGHT';
+    document.addEventListener('DOMContentLoaded', function() {
+      var lbl = document.getElementById('theme-label');
+      if (lbl) lbl.textContent = i18n[currentLang].themeLight;
     });
   }
 
-  // ─── MOBILE TAB SWITCHING ───
-  const mobileSections = {
-    stats: ['sec-metrics', 'sec-stats'],
+  // ═══════════════════════════════════════
+  //  MAP
+  // ═══════════════════════════════════════
+  var STATION_LAT = 14.5832, STATION_LNG = 100.9894;
+  var map = L.map('map-container', {
+    center: [STATION_LAT, STATION_LNG], zoom: 14,
+    zoomControl: false, scrollWheelZoom: false, dragging: false,
+  });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 19,
+  }).addTo(map);
+  var pulseIcon = L.divIcon({
+    className: '',
+    html: '<div style="width:16px;height:16px;border-radius:50%;background:#00b4ff;box-shadow:0 0 0 0 rgba(0,180,255,0.8);animation:map-ping 1.5s ease-out infinite;border:2px solid #00ffcc;"></div><style>@keyframes map-ping{0%{box-shadow:0 0 0 0 rgba(0,180,255,0.8)}70%{box-shadow:0 0 0 16px transparent}100%{box-shadow:0 0 0 0 transparent}}</style>',
+    iconSize: [16,16], iconAnchor: [8,8],
+  });
+  L.marker([STATION_LAT, STATION_LNG], { icon: pulseIcon })
+    .addTo(map)
+    .bindPopup('<b style="font-family:Rajdhani,sans-serif;color:#00b4ff">Smart ELO Station</b><br><small style="font-family:Share Tech Mono,monospace;color:#4a6080">Water Level Monitor</small>')
+    .openPopup();
+
+  // ═══════════════════════════════════════
+  //  MOBILE TAB SWITCHING
+  // ═══════════════════════════════════════
+  var mobileSections = {
+    stats: ['sec-metrics','sec-stats'],
     map:   ['sec-map'],
     chart: ['sec-chart'],
     log:   ['sec-log'],
   };
-
   function mobileTab(tab, btn) {
     if (window.innerWidth > 768) return;
-    // Hide all mobile sections
-    document.querySelectorAll('.mobile-section').forEach(el => el.classList.remove('visible'));
-    // Show selected
-    (mobileSections[tab] || []).forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.classList.add('visible');
+    document.querySelectorAll('.mobile-section').forEach(function(el){ el.classList.remove('visible'); });
+    (mobileSections[tab] || []).forEach(function(id){
+      var el = document.getElementById(id); if (el) el.classList.add('visible');
     });
-    // Update nav active state
-    document.querySelectorAll('.bnav-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.bnav-item').forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
-    // Re-render chart if switching to chart tab
-    if (tab === 'chart' && historyData.length) {
-      setTimeout(() => renderChart(historyData), 50);
-    }
-    // Invalidate map size if switching to map tab
-    if (tab === 'map' && typeof map !== 'undefined') {
-      setTimeout(() => map.invalidateSize(), 100);
-    }
+    if (tab === 'chart' && historyData.length) setTimeout(function(){ renderChart(historyData); }, 50);
+    if (tab === 'map')  setTimeout(function(){ map.invalidateSize(); }, 100);
   }
-
-  // On resize back to desktop — show all sections
-  window.addEventListener('resize', () => {
-    if (window.innerWidth > 768) {
-      document.querySelectorAll('.mobile-section').forEach(el => el.classList.add('visible'));
-    }
+  window.addEventListener('resize', function() {
+    if (window.innerWidth > 768)
+      document.querySelectorAll('.mobile-section').forEach(function(el){ el.classList.add('visible'); });
     if (historyData.length) renderChart(historyData);
   });
 
-  // Init
+  // ═══════════════════════════════════════
+  //  INIT
+  // ═══════════════════════════════════════
   applyLang();
   fetchWater();
   fetchCCTV();
   fetchHistory();
-  setInterval(fetchWater, 3000);
-  setInterval(fetchCCTV, 3000);
-  setInterval(fetchHistory, 30000); // refresh history every 30s
+  setInterval(fetchWater,   3000);
+  setInterval(fetchCCTV,    3000);
+  setInterval(fetchHistory, 30000);
+
+  // ═══════════════════════════════════════
+  //  EXPAND MODAL SYSTEM
+  // ═══════════════════════════════════════
+  var modalMap = null; // Leaflet map instance inside modal
+
+  function openModal(type) {
+    var overlay = document.getElementById('modal-overlay');
+    var body    = document.getElementById('modal-body');
+    var title   = document.getElementById('modal-title');
+    var t       = i18n[currentLang];
+
+    body.innerHTML = ''; // clear
+
+    if (type === 'cctv') {
+      title.textContent = t.cameraFeed + ' — ' + t.camName;
+      body.style.padding = '0';
+      body.innerHTML =
+        '<div class="modal-cctv-wrap" style="flex:1;min-height:50vh;">' +
+          '<img id="modal-cctv-img" style="width:100%;height:100%;object-fit:contain;background:#000;" ' +
+            'src="' + (document.getElementById('cctv-frame').src) + '">' +
+          '<div class="scanline"></div>' +
+          '<div class="corner c-tl"></div><div class="corner c-tr"></div>' +
+          '<div class="corner c-bl"></div><div class="corner c-br"></div>' +
+          '<div class="hud-overlay">' +
+            '<div class="hud-tag" id="modal-hud-time">' + document.getElementById('hud-time').textContent + '</div>' +
+            '<div class="rec-badge"><span class="rec-dot"></span>REC</div>' +
+          '</div>' +
+        '</div>';
+      // Mirror CCTV updates into modal
+      window._modalCctvActive = true;
+
+    } else if (type === 'map') {
+      title.textContent = t.stationLoc;
+      body.innerHTML = '<div id="modal-map-container"></div>';
+      // Init Leaflet inside modal after DOM is ready
+      setTimeout(function() {
+        if (modalMap) { modalMap.remove(); modalMap = null; }
+        modalMap = L.map('modal-map-container', {
+          center: [STATION_LAT, STATION_LNG], zoom: 15,
+          zoomControl: true, scrollWheelZoom: true, dragging: true,
+        });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap', maxZoom: 19,
+        }).addTo(modalMap);
+        L.marker([STATION_LAT, STATION_LNG], { icon: pulseIcon })
+          .addTo(modalMap)
+          .bindPopup('<b style="font-family:Rajdhani,sans-serif;color:#00b4ff">Smart ELO Station</b>')
+          .openPopup();
+        modalMap.invalidateSize();
+      }, 80);
+
+    } else if (type === 'chart') {
+      title.textContent = t.chartTitle;
+      body.innerHTML =
+        '<div class="modal-chart-wrap">' +
+          '<canvas id="modal-chart-canvas"></canvas>' +
+        '</div>' +
+        '<div class="chart-labels" id="modal-chart-labels" style="margin-top:6px;"></div>' +
+        '<div class="chart-stats" style="margin-top:8px;">' +
+          '<div class="chart-stat"><div class="chart-stat-val" id="modal-stat-min">--</div><div class="chart-stat-lbl">' + t.minCm + '</div></div>' +
+          '<div class="chart-stat"><div class="chart-stat-val" id="modal-stat-avg">--</div><div class="chart-stat-lbl">' + t.avgCm + '</div></div>' +
+          '<div class="chart-stat"><div class="chart-stat-val" id="modal-stat-max">--</div><div class="chart-stat-lbl">' + t.maxCm + '</div></div>' +
+        '</div>';
+      setTimeout(function() { renderModalChart(historyData); }, 80);
+
+    } else if (type === 'log') {
+      title.textContent = t.sensorLog;
+      var intervalMins = parseInt(document.getElementById('interval-select').value) || 1;
+      var filtered = filterByInterval(historyData, intervalMins);
+      var statusLabel = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
+      var rows = filtered.slice().reverse().map(function(r, i) {
+        var s = getStatus(r.value);
+        return '<tr class="' + (i===0?'row-new':'') + '">' +
+          '<td class="td-time">' + (filtered.length-i) + '</td>' +
+          '<td class="td-time">' + r.time + '</td>' +
+          '<td class="td-level ' + s.cls + '">' + r.value + '</td>' +
+          '<td><span class="td-status-pill ' + s.cls + '"><span class="pill-dot"></span>' + statusLabel[s.cls] + '</span></td>' +
+          '</tr>';
+      }).join('');
+      body.innerHTML =
+        '<div class="modal-log-wrap">' +
+          '<table class="log-table" style="width:100%;">' +
+            '<thead><tr>' +
+              '<th>#</th><th>' + t.datetime + '</th><th>' + t.level + '</th><th>' + t.status + '</th>' +
+            '</tr></thead>' +
+            '<tbody>' + (rows || '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--dim);">' + t.waiting + '</td></tr>') + '</tbody>' +
+          '</table>' +
+        '</div>';
+    }
+
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function renderModalChart(data) {
+    var canvas = document.getElementById('modal-chart-canvas');
+    if (!canvas || !data || !data.length) return;
+    var wrap = canvas.parentElement;
+    canvas.width  = wrap.clientWidth  * devicePixelRatio;
+    canvas.height = wrap.clientHeight * devicePixelRatio;
+    var ctx = canvas.getContext('2d');
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+    var W = wrap.clientWidth, H = wrap.clientHeight;
+    var isLight = document.body.classList.contains('light');
+    var accentColor  = isLight ? '#0077cc' : '#00b4ff';
+    var accent2Color = isLight ? '#00aa88' : '#00ffcc';
+    var gridColor    = isLight ? 'rgba(0,120,200,0.08)' : 'rgba(0,180,255,0.06)';
+    var axisColor    = isLight ? '#7a96b0' : '#4a6080';
+    var areaTop      = isLight ? 'rgba(0,120,200,0.15)' : 'rgba(0,180,255,0.25)';
+    var areaBot      = isLight ? 'rgba(0,120,200,0.02)' : 'rgba(0,180,255,0.04)';
+    var vals   = data.map(function(d){return d.value;});
+    var minVal = Math.min.apply(null,vals), maxVal = Math.max.apply(null,vals);
+    var range  = maxVal - minVal || 1;
+    var pad    = {top:14,right:12,bottom:24,left:40};
+    var gW = W-pad.left-pad.right, gH = H-pad.top-pad.bottom;
+    function toX(i){return pad.left+(i/(data.length-1))*gW;}
+    function toY(v){return pad.top+(1-(v-minVal)/range)*gH;}
+    ctx.clearRect(0,0,W,H);
+    // Grid
+    ctx.save(); ctx.strokeStyle=gridColor; ctx.lineWidth=1;
+    for(var gi=0;gi<=5;gi++){
+      var gy=pad.top+(gi/5)*gH;
+      ctx.beginPath();ctx.moveTo(pad.left,gy);ctx.lineTo(W-pad.right,gy);ctx.stroke();
+      ctx.fillStyle=axisColor;ctx.font='9px Share Tech Mono,monospace';ctx.textAlign='right';
+      ctx.fillText(Math.round(maxVal-(gi/5)*range),pad.left-5,gy+3);
+    }
+    ctx.restore();
+    // Thresholds
+    function drawT(cm,col,lbl){
+      if(cm<minVal-2||cm>maxVal+2)return;
+      var y=toY(cm);
+      ctx.save();ctx.setLineDash([4,4]);ctx.strokeStyle=col+'88';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();
+      ctx.fillStyle=col;ctx.font='10px Share Tech Mono,monospace';ctx.fillText(lbl,pad.left+3,y-4);ctx.restore();
+    }
+    drawT(T_WARN,'#ffb700','WARN'); drawT(T_DANGER,'#ff3b3b','CRIT');
+    // Area
+    var grad=ctx.createLinearGradient(0,pad.top,0,pad.top+gH);
+    grad.addColorStop(0,areaTop);grad.addColorStop(0.7,areaBot);grad.addColorStop(1,'transparent');
+    ctx.beginPath();ctx.moveTo(toX(0),toY(data[0].value));
+    for(var i=1;i<data.length;i++){var cx=(toX(i-1)+toX(i))/2;ctx.bezierCurveTo(cx,toY(data[i-1].value),cx,toY(data[i].value),toX(i),toY(data[i].value));}
+    ctx.lineTo(toX(data.length-1),pad.top+gH);ctx.lineTo(toX(0),pad.top+gH);ctx.closePath();
+    ctx.fillStyle=grad;ctx.fill();
+    // Line
+    ctx.beginPath();ctx.moveTo(toX(0),toY(data[0].value));
+    for(var i=1;i<data.length;i++){var cx=(toX(i-1)+toX(i))/2;ctx.bezierCurveTo(cx,toY(data[i-1].value),cx,toY(data[i].value),toX(i),toY(data[i].value));}
+    var lg=ctx.createLinearGradient(pad.left,0,W-pad.right,0);lg.addColorStop(0,accentColor);lg.addColorStop(1,accent2Color);
+    ctx.strokeStyle=lg;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.stroke();
+    // Last dot
+    var lx=toX(data.length-1),ly=toY(data[data.length-1].value);
+    ctx.save();ctx.shadowColor=accentColor;ctx.shadowBlur=12;
+    ctx.beginPath();ctx.arc(lx,ly,5,0,Math.PI*2);ctx.fillStyle=accent2Color;ctx.fill();ctx.restore();
+    // X labels
+    var step=Math.max(1,Math.floor(data.length/8));
+    var lbls=[];for(var i=0;i<data.length;i+=step)lbls.push(data[i].time);
+    var labelsEl=document.getElementById('modal-chart-labels');
+    if(labelsEl)labelsEl.innerHTML=lbls.map(function(l){return'<span>'+l+'</span>';}).join('');
+    // Stats
+    var avg=vals.reduce(function(a,b){return a+b;},0)/vals.length;
+    var minEl=document.getElementById('modal-stat-min');
+    var avgEl=document.getElementById('modal-stat-avg');
+    var maxEl=document.getElementById('modal-stat-max');
+    if(minEl)minEl.textContent=Math.round(minVal);
+    if(avgEl)avgEl.textContent=Math.round(avg*10)/10;
+    if(maxEl){maxEl.textContent=Math.round(maxVal);maxEl.style.color=maxVal>=T_DANGER?'#ff3b3b':maxVal>=T_WARN?'#ffb700':'var(--accent)';}
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+    window._modalCctvActive = false;
+    if (modalMap) { modalMap.remove(); modalMap = null; }
+  }
+
+  function closeModalOutside(e) {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  }
+
+  // Keyboard ESC to close
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  // Mirror live CCTV frames into modal when open
+  var _origFetchCCTV = fetchCCTV;
+  // After fetchCCTV updates the main frame, also update modal frame if open
+  // We hook into the cctv img src update
+  var _cctvObserver = new MutationObserver(function() {
+    if (window._modalCctvActive) {
+      var modalImg = document.getElementById('modal-cctv-img');
+      var mainImg  = document.getElementById('cctv-frame');
+      if (modalImg && mainImg) modalImg.src = mainImg.src;
+      var modalTime = document.getElementById('modal-hud-time');
+      var mainTime  = document.getElementById('hud-time');
+      if (modalTime && mainTime) modalTime.textContent = mainTime.textContent;
+    }
+  });
+  _cctvObserver.observe(document.getElementById('cctv-frame'), { attributes: true, attributeFilter: ['src'] });
+
+
+  // ═══════════════════════════════════════
+  //  INTRO SCREEN
+  // ═══════════════════════════════════════
+  (function() {
+    var screen  = document.getElementById('intro-screen');
+    var video   = document.getElementById('intro-video');
+    var fill    = document.getElementById('intro-progress-fill');
+    var done    = false;
+
+    function dismiss() {
+      if (done) return;
+      done = true;
+      screen.classList.add('fade-out');
+      setTimeout(function() { screen.classList.add('hidden'); }, 850);
+    }
+
+    window.skipIntro = dismiss;
+
+    // Auto-dismiss when video ends
+    if (video) {
+      video.addEventListener('ended', dismiss);
+
+      // Update progress bar
+      video.addEventListener('timeupdate', function() {
+        if (video.duration && fill) {
+          fill.style.width = (video.currentTime / video.duration * 100) + '%';
+        }
+      });
+
+      // If video fails to load/play → show for 3s then dismiss
+      video.addEventListener('error', function() {
+        setTimeout(dismiss, 3000);
+      });
+
+      // If video can't auto-play (browser policy) → dismiss after 3s
+      var playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(function() {
+          // Auto-play blocked — show static for 3s
+          setTimeout(dismiss, 3000);
+        });
+      }
+    } else {
+      // No video element → dismiss after 3s
+      setTimeout(dismiss, 3000);
+    }
+  })();
+
 </script>
 <!-- BOTTOM NAV (mobile only) -->
 <nav class="bottom-nav" id="bottom-nav">
@@ -1461,5 +2077,20 @@
   </button>
 </nav>
 
+
+<!-- ═══════════════════════════════════════════════
+     EXPAND MODALS
+═══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal-box" id="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">EXPAND</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body">
+      <!-- content injected by JS -->
+    </div>
+  </div>
+</div>
 </body>
 </html>
