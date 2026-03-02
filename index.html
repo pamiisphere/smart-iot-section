@@ -7,208 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;800&family=Sarabun:wght@400;500;600&family=Noto+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js">
-</script>
-<script>
-// ═══════════════════════════════════════
-  //  EXPAND MODAL SYSTEM
-  // ═══════════════════════════════════════
-  var modalMap = null; // Leaflet map instance inside modal
-
-  function openModal(type) {
-    var overlay = document.getElementById('modal-overlay');
-    var body    = document.getElementById('modal-body');
-    var title   = document.getElementById('modal-title');
-    var t       = i18n[currentLang];
-
-    body.innerHTML = ''; // clear
-
-    if (type === 'cctv') {
-      title.textContent = t.cameraFeed + ' — ' + t.camName;
-      body.style.padding = '0';
-      body.innerHTML =
-        '<div class="modal-cctv-wrap" style="flex:1;min-height:50vh;">' +
-          '<img id="modal-cctv-img" style="width:100%;height:100%;object-fit:contain;background:#000;" ' +
-            'src="' + (document.getElementById('cctv-frame').src) + '">' +
-          '<div class="scanline"></div>' +
-          '<div class="corner c-tl"></div><div class="corner c-tr"></div>' +
-          '<div class="corner c-bl"></div><div class="corner c-br"></div>' +
-          '<div class="hud-overlay">' +
-            '<div class="hud-tag" id="modal-hud-time">' + document.getElementById('hud-time').textContent + '</div>' +
-            '<div class="rec-badge"><span class="rec-dot"></span>REC</div>' +
-          '</div>' +
-        '</div>';
-      // Mirror CCTV updates into modal
-      window._modalCctvActive = true;
-
-    } else if (type === 'map') {
-      title.textContent = t.stationLoc;
-      body.innerHTML = '<div id="modal-map-container"></div>';
-      // Init Leaflet inside modal after DOM is ready
-      setTimeout(function() {
-        if (modalMap) { modalMap.remove(); modalMap = null; }
-        modalMap = L.map('modal-map-container', {
-          center: [STATION_LAT, STATION_LNG], zoom: 15,
-          zoomControl: true, scrollWheelZoom: true, dragging: true,
-        });
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap', maxZoom: 19,
-        }).addTo(modalMap);
-        L.marker([STATION_LAT, STATION_LNG], { icon: pulseIcon })
-          .addTo(modalMap)
-          .bindPopup('<b style="font-family:Rajdhani,sans-serif;color:#00b4ff">Smart ELO Station</b>')
-          .openPopup();
-        modalMap.invalidateSize();
-      }, 80);
-
-    } else if (type === 'chart') {
-      title.textContent = t.chartTitle;
-      body.innerHTML =
-        '<div class="modal-chart-wrap">' +
-          '<canvas id="modal-chart-canvas"></canvas>' +
-        '</div>' +
-        '<div class="chart-labels" id="modal-chart-labels" style="margin-top:6px;"></div>' +
-        '<div class="chart-stats" style="margin-top:8px;">' +
-          '<div class="chart-stat"><div class="chart-stat-val" id="modal-stat-min">--</div><div class="chart-stat-lbl">' + t.minCm + '</div></div>' +
-          '<div class="chart-stat"><div class="chart-stat-val" id="modal-stat-avg">--</div><div class="chart-stat-lbl">' + t.avgCm + '</div></div>' +
-          '<div class="chart-stat"><div class="chart-stat-val" id="modal-stat-max">--</div><div class="chart-stat-lbl">' + t.maxCm + '</div></div>' +
-        '</div>';
-      setTimeout(function() { renderModalChart(historyData); }, 80);
-
-    } else if (type === 'log') {
-      title.textContent = t.sensorLog;
-      var intervalMins = parseInt(document.getElementById('interval-select').value) || 1;
-      var filtered = filterByInterval(historyData, intervalMins);
-      var statusLabel = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
-      var rows = filtered.slice().reverse().map(function(r, i) {
-        var s = getStatus(r.value);
-        return '<tr class="' + (i===0?'row-new':'') + '">' +
-          '<td class="td-time">' + (filtered.length-i) + '</td>' +
-          '<td class="td-time">' + r.time + '</td>' +
-          '<td class="td-level ' + s.cls + '">' + r.value + '</td>' +
-          '<td><span class="td-status-pill ' + s.cls + '"><span class="pill-dot"></span>' + statusLabel[s.cls] + '</span></td>' +
-          '</tr>';
-      }).join('');
-      body.innerHTML =
-        '<div class="modal-log-wrap">' +
-          '<table class="log-table" style="width:100%;">' +
-            '<thead><tr>' +
-              '<th>#</th><th>' + t.datetime + '</th><th>' + t.level + '</th><th>' + t.status + '</th>' +
-            '</tr></thead>' +
-            '<tbody>' + (rows || '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--dim);">' + t.waiting + '</td></tr>') + '</tbody>' +
-          '</table>' +
-        '</div>';
-    }
-
-    overlay.classList.add('open');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function renderModalChart(data) {
-    var canvas = document.getElementById('modal-chart-canvas');
-    if (!canvas || !data || !data.length) return;
-    var wrap = canvas.parentElement;
-    canvas.width  = wrap.clientWidth  * devicePixelRatio;
-    canvas.height = wrap.clientHeight * devicePixelRatio;
-    var ctx = canvas.getContext('2d');
-    ctx.scale(devicePixelRatio, devicePixelRatio);
-    var W = wrap.clientWidth, H = wrap.clientHeight;
-    var isLight = document.body.classList.contains('light');
-    var accentColor  = isLight ? '#0077cc' : '#00b4ff';
-    var accent2Color = isLight ? '#00aa88' : '#00ffcc';
-    var gridColor    = isLight ? 'rgba(0,120,200,0.08)' : 'rgba(0,180,255,0.06)';
-    var axisColor    = isLight ? '#7a96b0' : '#4a6080';
-    var areaTop      = isLight ? 'rgba(0,120,200,0.15)' : 'rgba(0,180,255,0.25)';
-    var areaBot      = isLight ? 'rgba(0,120,200,0.02)' : 'rgba(0,180,255,0.04)';
-    var vals   = data.map(function(d){return d.value;});
-    var minVal = Math.min.apply(null,vals), maxVal = Math.max.apply(null,vals);
-    var range  = maxVal - minVal || 1;
-    var pad    = {top:14,right:12,bottom:24,left:40};
-    var gW = W-pad.left-pad.right, gH = H-pad.top-pad.bottom;
-    function toX(i){return pad.left+(i/(data.length-1))*gW;}
-    function toY(v){return pad.top+(1-(v-minVal)/range)*gH;}
-    ctx.clearRect(0,0,W,H);
-    // Grid
-    ctx.save(); ctx.strokeStyle=gridColor; ctx.lineWidth=1;
-    for(var gi=0;gi<=5;gi++){
-      var gy=pad.top+(gi/5)*gH;
-      ctx.beginPath();ctx.moveTo(pad.left,gy);ctx.lineTo(W-pad.right,gy);ctx.stroke();
-      ctx.fillStyle=axisColor;ctx.font='9px Share Tech Mono,monospace';ctx.textAlign='right';
-      ctx.fillText(Math.round(maxVal-(gi/5)*range),pad.left-5,gy+3);
-    }
-    ctx.restore();
-    // Thresholds
-    function drawT(cm,col,lbl){
-      if(cm<minVal-2||cm>maxVal+2)return;
-      var y=toY(cm);
-      ctx.save();ctx.setLineDash([4,4]);ctx.strokeStyle=col+'88';ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();
-      ctx.fillStyle=col;ctx.font='10px Share Tech Mono,monospace';ctx.fillText(lbl,pad.left+3,y-4);ctx.restore();
-    }
-    drawT(T_WARN,'#ffb700','WARN'); drawT(T_DANGER,'#ff3b3b','CRIT');
-    // Area
-    var grad=ctx.createLinearGradient(0,pad.top,0,pad.top+gH);
-    grad.addColorStop(0,areaTop);grad.addColorStop(0.7,areaBot);grad.addColorStop(1,'transparent');
-    ctx.beginPath();ctx.moveTo(toX(0),toY(data[0].value));
-    for(var i=1;i<data.length;i++){var cx=(toX(i-1)+toX(i))/2;ctx.bezierCurveTo(cx,toY(data[i-1].value),cx,toY(data[i].value),toX(i),toY(data[i].value));}
-    ctx.lineTo(toX(data.length-1),pad.top+gH);ctx.lineTo(toX(0),pad.top+gH);ctx.closePath();
-    ctx.fillStyle=grad;ctx.fill();
-    // Line
-    ctx.beginPath();ctx.moveTo(toX(0),toY(data[0].value));
-    for(var i=1;i<data.length;i++){var cx=(toX(i-1)+toX(i))/2;ctx.bezierCurveTo(cx,toY(data[i-1].value),cx,toY(data[i].value),toX(i),toY(data[i].value));}
-    var lg=ctx.createLinearGradient(pad.left,0,W-pad.right,0);lg.addColorStop(0,accentColor);lg.addColorStop(1,accent2Color);
-    ctx.strokeStyle=lg;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.stroke();
-    // Last dot
-    var lx=toX(data.length-1),ly=toY(data[data.length-1].value);
-    ctx.save();ctx.shadowColor=accentColor;ctx.shadowBlur=12;
-    ctx.beginPath();ctx.arc(lx,ly,5,0,Math.PI*2);ctx.fillStyle=accent2Color;ctx.fill();ctx.restore();
-    // X labels
-    var step=Math.max(1,Math.floor(data.length/8));
-    var lbls=[];for(var i=0;i<data.length;i+=step)lbls.push(data[i].time);
-    var labelsEl=document.getElementById('modal-chart-labels');
-    if(labelsEl)labelsEl.innerHTML=lbls.map(function(l){return'<span>'+l+'</span>';}).join('');
-    // Stats
-    var avg=vals.reduce(function(a,b){return a+b;},0)/vals.length;
-    var minEl=document.getElementById('modal-stat-min');
-    var avgEl=document.getElementById('modal-stat-avg');
-    var maxEl=document.getElementById('modal-stat-max');
-    if(minEl)minEl.textContent=Math.round(minVal);
-    if(avgEl)avgEl.textContent=Math.round(avg*10)/10;
-    if(maxEl){maxEl.textContent=Math.round(maxVal);maxEl.style.color=maxVal>=T_DANGER?'#ff3b3b':maxVal>=T_WARN?'#ffb700':'var(--accent)';}
-  }
-
-  function closeModal() {
-    document.getElementById('modal-overlay').classList.remove('open');
-    document.body.style.overflow = '';
-    window._modalCctvActive = false;
-    if (modalMap) { modalMap.remove(); modalMap = null; }
-  }
-
-  function closeModalOutside(e) {
-    if (e.target === document.getElementById('modal-overlay')) closeModal();
-  }
-
-  // Keyboard ESC to close
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeModal();
-  });
-
-  // Mirror live CCTV frames into modal when open
-  var _origFetchCCTV = fetchCCTV;
-  // After fetchCCTV updates the main frame, also update modal frame if open
-  // We hook into the cctv img src update
-  var _cctvObserver = new MutationObserver(function() {
-    if (window._modalCctvActive) {
-      var modalImg = document.getElementById('modal-cctv-img');
-      var mainImg  = document.getElementById('cctv-frame');
-      if (modalImg && mainImg) modalImg.src = mainImg.src;
-      var modalTime = document.getElementById('modal-hud-time');
-      var mainTime  = document.getElementById('hud-time');
-      if (modalTime && mainTime) modalTime.textContent = mainTime.textContent;
-    }
-  });
-  _cctvObserver.observe(document.getElementById('cctv-frame'), { attributes: true, attributeFilter: ['src'] });
-</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <style>
     :root {
       --bg:        #080d14;
@@ -278,6 +77,21 @@
     }
     body.light .toggle-thumb { transform: translateX(12px); background: #fff; }
 
+    /* ── Settings button (matches back-btn style in settings.html) ── */
+    .settings-btn {
+      display: flex; align-items: center; gap: 6px;
+      font-family: 'Share Tech Mono', monospace; font-size: 0.68rem;
+      letter-spacing: 1px; padding: 5px 12px; border-radius: 4px;
+      cursor: pointer; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03); color: var(--dim);
+      text-decoration: none; transition: all 0.15s;
+    }
+    .settings-btn:hover {
+      border-color: var(--accent); color: var(--accent);
+      background: rgba(0,180,255,0.06);
+    }
+    .settings-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
     * { margin:0; padding:0; box-sizing:border-box; }
 
     body {
@@ -325,7 +139,7 @@
     .topbar-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:1.2rem; letter-spacing:3px; color: var(--accent); text-transform:uppercase; }
     .topbar-sub   { font-family:'Share Tech Mono',monospace; font-size:0.65rem; color:var(--dim); letter-spacing:2px; }
 
-    .topbar-right { display:flex; align-items:center; gap:20px; }
+    .topbar-right { display:flex; align-items:center; gap:14px; }
     .topbar-time  { font-family:'Share Tech Mono',monospace; font-size:0.8rem; color:var(--accent2); letter-spacing:1px; }
     .sys-status   { display:flex; align-items:center; gap:6px; font-size:0.72rem; color:var(--ok); letter-spacing:1px; }
     .dot-live { width:7px;height:7px;border-radius:50%;background:var(--ok); box-shadow:0 0 8px var(--ok); animation: blink 1.2s step-start infinite; }
@@ -373,7 +187,6 @@
       width:100%; height:100%; object-fit:cover; display:block;
       filter: saturate(0.6) contrast(1.1);
     }
-    /* Scanline overlay */
     .scanline {
       position:absolute; inset:0; pointer-events:none;
       background: repeating-linear-gradient(
@@ -387,7 +200,6 @@
       from { background-position: 0 0; }
       to   { background-position: 0 100%; }
     }
-    /* Corner marks */
     .corner { position:absolute; width:20px; height:20px; border-color: var(--accent); border-style:solid; opacity:0.8; }
     .c-tl { top:8px;left:8px; border-width:2px 0 0 2px; }
     .c-tr { top:8px;right:8px; border-width:2px 2px 0 0; }
@@ -412,7 +224,6 @@
     .rec-dot { width:6px;height:6px;border-radius:50%;background:var(--danger);
       box-shadow:0 0 6px var(--danger); animation: blink 0.8s step-start infinite; }
 
-    /* Scrubber bar */
     .scrubber-area {
       padding: 8px 16px 12px;
       background: var(--panel);
@@ -468,14 +279,12 @@
     .metric-card .m-fill { height:100%; border-radius:2px; }
     .metric-card.level .m-fill { background: linear-gradient(90deg,var(--accent),var(--accent2)); transition:width 0.6s ease; }
     .metric-card.status .m-fill { background: var(--ok); transition:width 0.6s ease; }
-    /* Decorative corner glow */
     .metric-card::after {
       content:''; position:absolute; top:-20px; right:-20px;
       width:60px; height:60px; border-radius:50%;
       background: radial-gradient(circle, rgba(0,180,255,0.12), transparent 70%);
     }
 
-    /* Status card */
     .status-card {
       background: var(--panel); border: 1px solid var(--border);
       grid-column: 1/-1; padding:12px 16px;
@@ -534,7 +343,6 @@
       white-space:nowrap;
     }
 
-    /* Language toggle */
     .lang-toggle {
       display:flex; border:1px solid var(--border); border-radius:6px; overflow:hidden; flex-shrink:0;
     }
@@ -549,15 +357,12 @@
     .log-table-wrap {
       overflow-y: auto;
       overflow-x: hidden;
-      max-height: 168px;   /* thead ~32px + 3 rows ~44px = 164px */
+      max-height: 168px;
       min-height: 60px;
     }
-    .log-table-wrap::-webkit-scrollbar { width: 4px; }
+    .log-table-wrap::-webkit-scrollbar { width: 3px; }
     .log-table-wrap::-webkit-scrollbar-track { background: transparent; }
-    .log-table-wrap::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; opacity: 0.5; }
-    .log-table-wrap::-webkit-scrollbar { width:3px; }
-    .log-table-wrap::-webkit-scrollbar-track { background:transparent; }
-    .log-table-wrap::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+    .log-table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
     .log-table {
       width:100%; border-collapse:collapse;
@@ -646,7 +451,6 @@
       transition: filter 0.3s;
     }
     #map-container:hover { filter: saturate(0.8) brightness(0.9) hue-rotate(180deg); }
-    /* Override leaflet attribution to fit dark theme */
     .leaflet-control-attribution { background: rgba(0,0,0,0.6) !important; color: #4a6080 !important; font-size:8px !important; }
     .leaflet-control-attribution a { color: #4a6080 !important; }
     .chart-panel {
@@ -686,16 +490,9 @@
     .chart-stat-val { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:1rem; color:var(--accent); }
     .chart-stat-lbl { font-family:'Share Tech Mono',monospace; font-size:0.52rem; color:var(--dim); letter-spacing:1px; }
 
-    /* ══════════════════════════════════════
-       RESPONSIVE — TABLET & MOBILE
-    ══════════════════════════════════════ */
-
     /* ── Tablet landscape (≤1024px) ── */
     @media (max-width: 1024px) {
-      .main {
-        grid-template-columns: 1fr 340px;
-        padding: 12px;
-      }
+      .main { grid-template-columns: 1fr 340px; padding: 12px; }
       .metric-card .m-value { font-size: 2.6rem; }
       #map-container { height: 160px; }
     }
@@ -706,6 +503,9 @@
       .topbar-sub { display: none; }
       .topbar-title { font-size: 1rem; letter-spacing: 2px; }
       .sys-status span:not(.dot-live) { display: none; }
+      /* Hide settings label text on mobile, show just icon */
+      .settings-btn span { display: none; }
+      .settings-btn { padding: 5px 8px; }
 
       .main {
         grid-template-columns: 1fr;
@@ -713,38 +513,28 @@
         height: auto;
         padding: 10px;
         gap: 8px;
-        padding-bottom: 72px; /* space for bottom nav */
+        padding-bottom: 72px;
       }
 
-      /* CCTV full width on top — taller to reduce dead space */
       .cctv-panel {
         grid-row: auto;
         border-radius: 12px;
         margin: 0;
-        height: 52vw; /* aspect-ratio-friendly: ~52% of viewport width */
+        height: 52vw;
         min-height: 260px;
         max-height: 380px;
       }
       .cctv-wrap { flex: 1; }
 
-      /* Right col full width below */
-      .right-col {
-        grid-column: 1;
-        gap: 8px;
-      }
-
+      .right-col { grid-column: 1; gap: 8px; }
       .metrics-row { gap: 8px; }
       .metric-card { padding: 16px 12px; border-radius: 10px !important; border: 1px solid var(--border); }
       .metric-card .m-value { font-size: 2.8rem; }
-
       .status-card { border-radius: 10px; border: 1px solid var(--border); }
-
       .map-panel { border-radius: 10px; border: 1px solid var(--border); }
       #map-container { height: 180px; }
-
       .chart-panel { border-radius: 10px; border: 1px solid var(--border); }
       .chart-canvas-wrap { height: 130px; }
-
       .log-panel { border-radius: 10px; border: 1px solid var(--border); }
     }
 
@@ -753,37 +543,24 @@
       .topbar { padding: 8px 12px; }
       .topbar-title { font-size: 0.9rem; letter-spacing: 1px; }
       .topbar-time { font-size: 0.72rem; }
-
       .main { padding: 8px; gap: 6px; padding-bottom: 76px; }
-
       .cctv-panel { height: 56vw; min-height: 220px; max-height: 320px; }
       .cctv-header { padding: 8px 12px; }
       .cam-name { font-size: 0.85rem; }
-
       .metric-card { padding: 14px 10px; }
       .metric-card .m-value { font-size: 2.4rem; }
       .metric-card .m-label { font-size: 0.55rem; }
       .metric-card .m-unit  { font-size: 0.6rem; }
-
       .status-card { padding: 10px 12px; }
       .status-text { font-size: 0.8rem; }
-
       #map-container { height: 160px; }
-
       .chart-canvas-wrap { height: 110px; }
       .chart-title { font-size: 0.78rem; }
       .range-btn { padding: 2px 6px; font-size: 0.55rem; }
-
-      .alert-item { padding: 8px 10px; gap: 8px; }
-      .alert-thumb { width: 42px; height: 32px; font-size: 1rem; }
-      .alert-type { font-size: 0.75rem; }
-      .alert-meta { font-size: 0.55rem; }
     }
 
     /* ── Bottom Nav (mobile only) ── */
-    .bottom-nav {
-      display: none;
-    }
+    .bottom-nav { display: none; }
     @media (max-width: 768px) {
       .bottom-nav {
         display: flex;
@@ -806,16 +583,12 @@
       .bnav-item svg { width: 20px; height: 20px; }
       .bnav-item.active svg { filter: drop-shadow(0 0 6px var(--accent)); }
 
-      /* Section visibility toggling */
       .mobile-section { display: none !important; }
       .mobile-section.visible { display: flex !important; }
-      /* CCTV always visible */
       .cctv-panel { display: flex !important; }
     }
 
-    /* ═══════════════════════════════════
-       EXPAND MODAL
-    ═══════════════════════════════════ */
+    /* ═══ EXPAND MODAL ═══ */
     .modal-overlay {
       display: none;
       position: fixed; inset: 0; z-index: 9999;
@@ -863,24 +636,17 @@
       flex: 1; overflow: auto; padding: 16px;
       display: flex; flex-direction: column; gap: 12px;
     }
-    /* CCTV modal specific */
     .modal-cctv-wrap {
       position: relative; flex: 1; background: #000;
       border-radius: 8px; overflow: hidden; min-height: 300px;
     }
-    .modal-cctv-wrap img {
-      width: 100%; height: 100%; object-fit: contain; display: block;
-    }
+    .modal-cctv-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .modal-cctv-wrap .scanline { opacity: 0.4; }
-    /* Map modal */
     #modal-map-container { height: 460px; border-radius: 8px; overflow: hidden; }
-    /* Chart modal canvas */
     .modal-chart-wrap { height: 340px; position: relative; }
     #modal-chart-canvas { width: 100%; height: 100%; display: block; }
-    /* Log modal */
     .modal-log-wrap { flex: 1; overflow-y: auto; }
 
-    /* Expand button — shown on hover over panels */
     .expand-btn {
       display: inline-flex; align-items: center; gap: 4px;
       font-family: 'Share Tech Mono', monospace; font-size: 0.58rem; letter-spacing: 1px;
@@ -891,7 +657,6 @@
     }
     .expand-btn:hover { background: rgba(0,180,255,0.2); }
     .expand-btn svg { width: 11px; height: 11px; }
-    /* CCTV expand btn — absolute position over video */
     .cctv-expand-btn {
       position: absolute; top: 10px; right: 10px; z-index: 10;
       display: flex; align-items: center; gap: 4px;
@@ -904,9 +669,7 @@
     .cctv-expand-btn:hover { background: rgba(0,180,255,0.4); border-color: var(--accent); }
     .cctv-expand-btn svg { width: 12px; height: 12px; }
 
-    /* ═══════════════════════════════════════
-       INTRO / LOGO SCREEN
-    ═══════════════════════════════════════ */
+    /* ═══ INTRO SCREEN ═══ */
     #intro-screen {
       position: fixed; inset: 0; z-index: 99999;
       background: #fefbfb;
@@ -914,23 +677,13 @@
       align-items: center; justify-content: center;
       transition: opacity 0.8s ease;
     }
-    #intro-screen.fade-out {
-      opacity: 0;
-      pointer-events: none;
-    }
+    #intro-screen.fade-out { opacity: 0; pointer-events: none; }
     #intro-screen.hidden { display: none; }
 
     #intro-video {
-      /* ขยายความกว้างให้เต็มที่ 90% ของหน้าจอ แต่ไม่เกิน 1000px เพื่อความคมชัด */
-      width: 90%; 
-      max-width: 1000px; 
-      
-      /* ปรับความสูงสูงสุดให้เพิ่มขึ้นเป็น 85% ของหน้าจอ */
-      height: auto; 
-      max-height: 85vh;
-      
-      object-fit: contain;
-      border-radius: 8px;
+      width: 90%; max-width: 1000px;
+      height: auto; max-height: 85vh;
+      object-fit: contain; border-radius: 8px;
       background-color: #fefbfb;
     }
 
@@ -944,64 +697,33 @@
       transition: all 0.2s;
       animation: pulse-skip 2s ease-in-out infinite;
     }
-    .intro-skip-btn:hover {
-      background: rgba(0,180,255,0.25);
-      border-color: #00b4ff;
-      animation: none;
-    }
+    .intro-skip-btn:hover { background: rgba(0,180,255,0.25); border-color: #00b4ff; animation: none; }
     @keyframes pulse-skip {
       0%,100% { box-shadow: 0 0 0 0 rgba(0,180,255,0.3); }
       50%      { box-shadow: 0 0 0 8px rgba(0,180,255,0); }
     }
     .intro-skip-btn svg { width: 14px; height: 14px; }
-
-    .intro-progress {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      height: 3px; background: rgba(0,180,255,0.1);
-    }
-    .intro-progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #00b4ff, #00ffcc);
-      width: 0%; transition: width 0.1s linear;
-    }
+    .intro-progress { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: rgba(0,180,255,0.1); }
+    .intro-progress-fill { height: 100%; background: linear-gradient(90deg, #00b4ff, #00ffcc); width: 0%; transition: width 0.1s linear; }
   </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════
-     INTRO / LOGO SCREEN
-     Replace the src with your actual video file path.
-     If hosting on a server, put the .mp4 in the same folder.
-═══════════════════════════════════════════════ -->
+<!-- INTRO SCREEN -->
 <div id="intro-screen">
-  <video
-    id="intro-video"
-    autoplay
-    muted
-    playsinline
-    preload="auto"
-  >
-    <!-- Replace with your actual video filename/path -->
+  <video id="intro-video" autoplay muted playsinline preload="auto">
     <source src="TRAMS_logo.MP4" type="video/mp4">
-    <!-- Fallback: if no video, show logo text -->
     <div style="text-align:center;">
       <div style="font-family:'Rajdhani',sans-serif;font-size:3rem;font-weight:700;color:#00b4ff;letter-spacing:6px;">TRAMS</div>
       <div style="font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:#4a6080;letter-spacing:3px;margin-top:8px;">SMART ELO STATION</div>
     </div>
   </video>
-
   <button class="intro-skip-btn" onclick="skipIntro()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/>
-    </svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
     ENTER DASHBOARD
   </button>
-
-  <div class="intro-progress">
-    <div class="intro-progress-fill" id="intro-progress-fill"></div>
-  </div>
+  <div class="intro-progress"><div class="intro-progress-fill" id="intro-progress-fill"></div></div>
 </div>
-
 
 <!-- TOP BAR -->
 <header class="topbar">
@@ -1018,10 +740,18 @@
     </div>
     <div class="topbar-time" id="clock">--:--:--</div>
     <!-- Language Toggle -->
-    <div class="lang-toggle" style="border-color:var(--border);">
+    <div class="lang-toggle">
       <button class="lang-btn" id="lang-th-btn" onclick="setLang('th')">TH</button>
       <button class="lang-btn active" id="lang-en-btn" onclick="setLang('en')">EN</button>
     </div>
+    <!-- ★ SETTINGS BUTTON ★ -->
+    <a href="setting.html" class="settings-btn" title="Admin Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+      </svg>
+      <span id="lbl-settings">SETTINGS</span>
+    </a>
     <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
       <div class="toggle-track"><div class="toggle-thumb"></div></div>
       <span id="theme-label">DARK</span>
@@ -1060,7 +790,7 @@
     <div class="scrubber-area">
       <div class="scrubber-bar"><div class="scrubber-fill" id="scrubber"></div></div>
       <div class="scrubber-info">
-        <span id="scrubber-left" id="lbl-live">LIVE</span>
+        <span id="scrubber-left">LIVE</span>
         <span id="update-ts">Last update: --</span>
       </div>
     </div>
@@ -1155,17 +885,16 @@
         <div class="log-controls">
           <span class="interval-label" id="lbl-show-every">Show every</span>
           <select class="interval-select" id="interval-select" onchange="changeInterval(this.value)">
-            <option value="1"    data-th="1 นาที"      data-en="1 min"  selected>1 min</option>
-            <option value="5"    data-th="5 นาที"      data-en="5 min">5 min</option>
-            <option value="15"   data-th="15 นาที"     data-en="15 min">15 min</option>
-            <option value="30"   data-th="30 นาที"     data-en="30 min">30 min</option>
-            <option value="60"   data-th="1 ชั่วโมง"  data-en="1 hr">1 hr</option>
-            <option value="360"  data-th="6 ชั่วโมง"  data-en="6 hr">6 hr</option>
-            <option value="720"  data-th="12 ชั่วโมง" data-en="12 hr">12 hr</option>
-            <option value="1440" data-th="1 วัน"       data-en="1 day">1 day</option>
+            <option value="1"    selected>1 min</option>
+            <option value="5">5 min</option>
+            <option value="15">15 min</option>
+            <option value="30">30 min</option>
+            <option value="60">1 hr</option>
+            <option value="360">6 hr</option>
+            <option value="720">12 hr</option>
+            <option value="1440">1 day</option>
           </select>
           <div class="log-count-badge" id="log-count">0 records</div>
-
         </div>
       </div>
 
@@ -1203,6 +932,37 @@
   </div>
 </div>
 
+<!-- BOTTOM NAV (mobile only) -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bnav-item active" onclick="mobileTab('stats',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    <span id="lbl-bnav-data">DATA</span>
+  </button>
+  <button class="bnav-item" onclick="mobileTab('map',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+    <span id="lbl-bnav-map">MAP</span>
+  </button>
+  <button class="bnav-item" onclick="mobileTab('chart',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    <span id="lbl-bnav-graph">GRAPH</span>
+  </button>
+  <button class="bnav-item" onclick="mobileTab('log',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    <span id="lbl-bnav-log">LOG</span>
+  </button>
+</nav>
+
+<!-- EXPAND MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal-box" id="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">EXPAND</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
 <script>
   const API_WATER   = 'http://103.234.236.68:1880/get-water-level';
   const API_CCTV    = 'http://103.234.236.68:1880/get-cctv';
@@ -1216,20 +976,19 @@
   let currentLevel = null;
   let currentRange = '1h';
   let historyData  = [];
-  let demoMode     = true;   // set false once Node-RED /get-history is ready
+  let demoMode     = true;
+  let currentLang  = 'en';
 
-  // ── Clock (ticks every second) ──────────────────────────────────
+  // Clock
   function updateClock() {
     const now = new Date();
-    document.getElementById('clock').textContent =
-      now.toLocaleTimeString('th-TH', { hour12: false });
-    document.getElementById('hud-time').textContent =
-      now.toTimeString().slice(0, 8);
+    document.getElementById('clock').textContent = now.toLocaleTimeString('th-TH', { hour12: false });
+    document.getElementById('hud-time').textContent = now.toTimeString().slice(0, 8);
   }
   setInterval(updateClock, 1000);
   updateClock();
 
-  // ── Status helper ────────────────────────────────────────────────
+  // Status helper
   function getStatus(level) {
     if (level >= T_DANGER) return { cls:'danger', label:'CRITICAL FLOOD ALERT', icon:'🔴', color:'#ff3b3b', barW: Math.min(100, level/T_MAX*100) + '%' };
     if (level >= T_WARN)   return { cls:'warn',   label:'WARNING: RISING WATER', icon:'🟡', color:'#ffb700', barW: Math.min(100, level/T_MAX*100) + '%' };
@@ -1242,109 +1001,71 @@
     const s = getStatus(level);
     el.style.color = s.color;
     el.style.textShadow = '0 0 20px ' + s.color + '55';
-
     const wb = document.getElementById('water-bar');
     wb.style.width = s.barW; wb.style.background = s.color;
-
     const dot = document.getElementById('status-dot');
     dot.className = 'status-indicator ' + s.cls;
     const txt = document.getElementById('status-text');
     txt.className = 'status-text ' + s.cls;
-
-    // status-text uses translated string
     const t = i18n[currentLang];
     const sMap = { ok: t.statusOk, warn: t.statusWarn, danger: t.statusDanger };
     txt.textContent = sMap[s.cls];
-    document.getElementById('status-since').textContent =
-      new Date().toLocaleTimeString('th-TH', { hour12: false });
-
+    document.getElementById('status-since').textContent = new Date().toLocaleTimeString('th-TH', { hour12: false });
     document.getElementById('station-icon').textContent = s.icon;
     const sl = document.getElementById('station-label');
     const stMap = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
     sl.textContent = stMap[s.cls];
     sl.style.color = s.color;
-
     const sb = document.getElementById('status-bar');
     sb.style.width = s.barW; sb.style.background = s.color;
   }
 
-  // ═══════════════════════════════════════
-  //  GLOBAL LANGUAGE SYSTEM
-  // ═══════════════════════════════════════
-  let currentLang = 'en';
-
+  // i18n — added 'settings' key
   const i18n = {
     en: {
-      sub:           'FLOOD MONITORING SYSTEM · NODE-RED CLOUD',
-      online:        'SYSTEM ONLINE',
-      themeDark:     'DARK',  themeLight: 'LIGHT',
-      cameraFeed:    'CAMERA FEED',
-      camName:       'Station Camera-01',
-      live:          'LIVE',
-      lastUpdatePfx: 'Last update: ',
-      waterLevel:    'Water Level',
-      centimeters:   'CENTIMETERS',
-      stationStatus: 'Station Status',
-      statusOk:      'WATER LEVEL NORMAL',
-      statusWarn:    'WARNING: RISING WATER',
-      statusDanger:  'CRITICAL FLOOD ALERT',
-      stationLoc:    'STATION LOCATION',
-      chartTitle:    'WATER LEVEL HISTORY',
-      minCm: 'MIN cm', avgCm: 'AVG cm', maxCm: 'MAX cm',
-      sensorLog:     'SENSOR LOG',
-      showEvery:     'Show every',
-      records:       'records',
-      datetime:      'Date / Time',
-      level:         'Level (cm)',
-      status:        'Status',
-      nextUpdate:    'Next update:',
-      waiting:       'Waiting for sensor data...',
-      clear:         'CLEAR',
-      statusNormal:  'NORMAL', statusWarning: 'WARNING', statusCrit: 'CRITICAL',
-      confirmClear:  'Clear all records?',
-      bnavData: 'DATA', bnavMap: 'MAP', bnavGraph: 'GRAPH', bnavLog: 'LOG',
-      options: ['1 min','5 min','15 min','30 min','1 hr','6 hr','12 hr','1 day'],
+      sub:'FLOOD MONITORING SYSTEM · NODE-RED CLOUD', online:'SYSTEM ONLINE',
+      themeDark:'DARK', themeLight:'LIGHT',
+      cameraFeed:'CAMERA FEED', camName:'Station Camera-01',
+      live:'LIVE', lastUpdatePfx:'Last update: ',
+      waterLevel:'Water Level', centimeters:'CENTIMETERS',
+      stationStatus:'Station Status',
+      statusOk:'WATER LEVEL NORMAL', statusWarn:'WARNING: RISING WATER', statusDanger:'CRITICAL FLOOD ALERT',
+      stationLoc:'STATION LOCATION', chartTitle:'WATER LEVEL HISTORY',
+      minCm:'MIN cm', avgCm:'AVG cm', maxCm:'MAX cm',
+      sensorLog:'SENSOR LOG', showEvery:'Show every', records:'records',
+      datetime:'Date / Time', level:'Level (cm)', status:'Status',
+      nextUpdate:'Next update:', waiting:'Waiting for sensor data...', clear:'CLEAR',
+      statusNormal:'NORMAL', statusWarning:'WARNING', statusCrit:'CRITICAL',
+      confirmClear:'Clear all records?',
+      bnavData:'DATA', bnavMap:'MAP', bnavGraph:'GRAPH', bnavLog:'LOG',
+      settings:'SETTINGS',
+      options:['1 min','5 min','15 min','30 min','1 hr','6 hr','12 hr','1 day'],
     },
     th: {
-      sub:           'ระบบติดตามน้ำท่วม · NODE-RED CLOUD',
-      online:        'ระบบออนไลน์',
-      themeDark:     'มืด',  themeLight: 'สว่าง',
-      cameraFeed:    'กล้อง CCTV',
-      camName:       'กล้องสถานี-01',
-      live:          'สด',
-      lastUpdatePfx: 'อัปเดตล่าสุด: ',
-      waterLevel:    'ระดับน้ำ',
-      centimeters:   'เซนติเมตร',
-      stationStatus: 'สถานะสถานี',
-      statusOk:      'ระดับน้ำปกติ',
-      statusWarn:    'คำเตือน: น้ำกำลังสูงขึ้น',
-      statusDanger:  'เตือนภัย: น้ำท่วม',
-      stationLoc:    'ตำแหน่งสถานี',
-      chartTitle:    'กราฟระดับน้ำ',
-      minCm: 'ต่ำสุด cm', avgCm: 'เฉลี่ย cm', maxCm: 'สูงสุด cm',
-      sensorLog:     'บันทึกระดับน้ำ',
-      showEvery:     'แสดงทุก',
-      records:       'รายการ',
-      datetime:      'วันที่ / เวลา',
-      level:         'ระดับน้ำ (cm)',
-      status:        'สถานะ',
-      nextUpdate:    'อัปเดตถัดไป:',
-      waiting:       'รอข้อมูลจาก sensor...',
-      clear:         'ล้างข้อมูล',
-      statusNormal:  'ปกติ', statusWarning: 'เฝ้าระวัง', statusCrit: 'วิกฤต',
-      confirmClear:  'ล้างข้อมูลทั้งหมด?',
-      bnavData: 'ข้อมูล', bnavMap: 'แผนที่', bnavGraph: 'กราฟ', bnavLog: 'บันทึก',
-      options: ['1 นาที','5 นาที','15 นาที','30 นาที','1 ชั่วโมง','6 ชั่วโมง','12 ชั่วโมง','1 วัน'],
+      sub:'ระบบติดตามน้ำท่วม · NODE-RED CLOUD', online:'ระบบออนไลน์',
+      themeDark:'มืด', themeLight:'สว่าง',
+      cameraFeed:'กล้อง CCTV', camName:'กล้องสถานี-01',
+      live:'สด', lastUpdatePfx:'อัปเดตล่าสุด: ',
+      waterLevel:'ระดับน้ำ', centimeters:'เซนติเมตร',
+      stationStatus:'สถานะสถานี',
+      statusOk:'ระดับน้ำปกติ', statusWarn:'คำเตือน: น้ำกำลังสูงขึ้น', statusDanger:'เตือนภัย: น้ำท่วม',
+      stationLoc:'ตำแหน่งสถานี', chartTitle:'กราฟระดับน้ำ',
+      minCm:'ต่ำสุด cm', avgCm:'เฉลี่ย cm', maxCm:'สูงสุด cm',
+      sensorLog:'บันทึกระดับน้ำ', showEvery:'แสดงทุก', records:'รายการ',
+      datetime:'วันที่ / เวลา', level:'ระดับน้ำ (cm)', status:'สถานะ',
+      nextUpdate:'อัปเดตถัดไป:', waiting:'รอข้อมูลจาก sensor...', clear:'ล้างข้อมูล',
+      statusNormal:'ปกติ', statusWarning:'เฝ้าระวัง', statusCrit:'วิกฤต',
+      confirmClear:'ล้างข้อมูลทั้งหมด?',
+      bnavData:'ข้อมูล', bnavMap:'แผนที่', bnavGraph:'กราฟ', bnavLog:'บันทึก',
+      settings:'ตั้งค่า',
+      options:['1 นาที','5 นาที','15 นาที','30 นาที','1 ชั่วโมง','6 ชั่วโมง','12 ชั่วโมง','1 วัน'],
     }
   };
 
   function setLang(lang) {
     currentLang = lang;
     document.querySelectorAll('.lang-btn').forEach(function(b) {
-      b.classList.toggle('active',
-        (lang === 'th' && b.textContent === 'TH') ||
-        (lang === 'en' && b.textContent === 'EN')
-      );
+      b.classList.toggle('active', (lang==='th'&&b.textContent==='TH')||(lang==='en'&&b.textContent==='EN'));
     });
     applyLang();
     renderLogTable(historyData);
@@ -1353,50 +1074,34 @@
   function applyLang() {
     var t = i18n[currentLang];
     function set(id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; }
-    set('lbl-sub',             t.sub);
-    set('lbl-online',          t.online);
-    set('theme-label',         document.body.classList.contains('light') ? t.themeLight : t.themeDark);
-    set('lbl-camera-feed',     t.cameraFeed);
-    set('lbl-cam-name',        t.camName);
-    set('scrubber-left',       t.live);
-    set('lbl-water-level',     t.waterLevel);
-    set('lbl-centimeters',     t.centimeters);
-    set('lbl-station-status',  t.stationStatus);
-    set('lbl-station-location',t.stationLoc);
-    set('lbl-chart-title',     t.chartTitle);
-    set('lbl-min-cm',          t.minCm);
-    set('lbl-avg-cm',          t.avgCm);
-    set('lbl-max-cm',          t.maxCm);
-    set('lbl-sensor-log',      t.sensorLog);
-    set('lbl-show-every',      t.showEvery);
-    set('th-datetime',         t.datetime);
-    set('th-level',            t.level);
-    set('th-status',           t.status);
-    set('lbl-clear',           t.clear);
-    set('lbl-bnav-data',       t.bnavData);
-    set('lbl-bnav-map',        t.bnavMap);
-    set('lbl-bnav-graph',      t.bnavGraph);
-    set('lbl-bnav-log',        t.bnavLog);
-    set('log-count',           historyData.length + ' ' + t.records);
-
+    set('lbl-sub', t.sub); set('lbl-online', t.online);
+    set('theme-label', document.body.classList.contains('light') ? t.themeLight : t.themeDark);
+    set('lbl-camera-feed', t.cameraFeed); set('lbl-cam-name', t.camName);
+    set('scrubber-left', t.live);
+    set('lbl-water-level', t.waterLevel); set('lbl-centimeters', t.centimeters);
+    set('lbl-station-status', t.stationStatus);
+    set('lbl-station-location', t.stationLoc); set('lbl-chart-title', t.chartTitle);
+    set('lbl-min-cm', t.minCm); set('lbl-avg-cm', t.avgCm); set('lbl-max-cm', t.maxCm);
+    set('lbl-sensor-log', t.sensorLog); set('lbl-show-every', t.showEvery);
+    set('th-datetime', t.datetime); set('th-level', t.level); set('th-status', t.status);
+    set('lbl-clear', t.clear);
+    set('lbl-bnav-data', t.bnavData); set('lbl-bnav-map', t.bnavMap);
+    set('lbl-bnav-graph', t.bnavGraph); set('lbl-bnav-log', t.bnavLog);
+    set('lbl-settings', t.settings);  // ★ settings button label
+    set('log-count', historyData.length + ' ' + t.records);
     var emptyMsg = document.getElementById('log-empty-msg');
     if (emptyMsg) emptyMsg.textContent = t.waiting;
-
-    // Dropdown option labels
     var sel = document.getElementById('interval-select');
     ['1','5','15','30','60','360','720','1440'].forEach(function(v, i) {
       var opt = sel && sel.querySelector('option[value="' + v + '"]');
       if (opt) opt.textContent = t.options[i];
     });
-
     if (currentLevel !== null) {
       var s = getStatus(currentLevel);
-      var sMap  = { ok: t.statusOk,   warn: t.statusWarn,    danger: t.statusDanger };
+      var sMap  = { ok: t.statusOk, warn: t.statusWarn, danger: t.statusDanger };
       var stMap = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
-      set('status-text',    sMap[s.cls]);
-      set('station-label',  stMap[s.cls]);
+      set('status-text', sMap[s.cls]); set('station-label', stMap[s.cls]);
     }
-
     var tsEl = document.getElementById('update-ts');
     if (tsEl) {
       var raw = tsEl.getAttribute('data-time') || '';
@@ -1404,114 +1109,61 @@
     }
   }
 
-  // ═══════════════════════════════════════
-  //  SENSOR LOG TABLE
-  //  — data comes from historyData (InfluxDB)
-  //  — interval dropdown filters rows by N-minute spacing
-  // ═══════════════════════════════════════
-
-  /**
-   * parseTimeToMinutes("14:35") → 875
-   * Handles "HH:MM" and "HH:MM:SS" formats.
-   * Returns null if unparseable (e.g. date labels like "15 ม.ค.").
-   */
+  // Log table helpers
   function parseTimeToMinutes(timeStr) {
     if (!timeStr) return null;
     var m = timeStr.match(/^(\d{1,2}):(\d{2})/);
     return m ? parseInt(m[1]) * 60 + parseInt(m[2]) : null;
   }
 
-  /**
-   * filterByInterval(data, intervalMins)
-   * Picks one data point every `intervalMins` minutes.
-   * When timestamps are not parseable (7d range uses date labels),
-   * falls back to evenly spaced index sampling.
-   */
-  /**
-   * filterByInterval(data, intervalMins)
-   * Always works on a chronologically sorted copy (oldest first).
-   * Returns array in oldest-first order; renderLogTable reverses it for display.
-   */
   function filterByInterval(data, intervalMins) {
     if (!data || data.length === 0) return [];
-
-    // Sort a copy oldest→newest using parsed minutes (stable sort)
     var sorted = data.slice().sort(function(a, b) {
-      var ma = parseTimeToMinutes(a.time);
-      var mb = parseTimeToMinutes(b.time);
-      if (ma === null || mb === null) return 0; // keep original order if unparseable
-      // Handle midnight rollover: if diff > 720 assume day boundary
+      var ma = parseTimeToMinutes(a.time), mb = parseTimeToMinutes(b.time);
+      if (ma === null || mb === null) return 0;
       var diff = ma - mb;
-      if (diff > 720)  diff -= 1440;
+      if (diff > 720) diff -= 1440;
       if (diff < -720) diff += 1440;
       return diff;
     });
-
-    if (intervalMins <= 1) return sorted; // show all, sorted
-
-    var filtered = [];
-    var lastMins = null;
-    var allParseable = true;
-
+    if (intervalMins <= 1) return sorted;
+    var filtered = [], lastMins = null, allParseable = true;
     for (var i = 0; i < sorted.length; i++) {
       var mins = parseTimeToMinutes(sorted[i].time);
       if (mins === null) { allParseable = false; break; }
-      // Handle midnight rollover
       var gap = lastMins === null ? intervalMins : (mins - lastMins + 1440) % 1440;
-      if (lastMins === null || gap >= intervalMins) {
-        filtered.push(sorted[i]);
-        lastMins = mins;
-      }
+      if (lastMins === null || gap >= intervalMins) { filtered.push(sorted[i]); lastMins = mins; }
     }
-
     if (!allParseable || filtered.length === 0) {
       var step = Math.max(1, Math.round(intervalMins));
       filtered = sorted.filter(function(_, idx) { return idx % step === 0; });
     }
-
     return filtered.length > 0 ? filtered : [sorted[sorted.length - 1]];
   }
 
-  /**
-   * changeInterval — called by dropdown onchange
-   * Re-renders table immediately using existing historyData
-   */
-  function changeInterval(val) {
-    renderLogTable(historyData);
-  }
+  function changeInterval(val) { renderLogTable(historyData); }
 
-  /**
-   * renderLogTable(data)
-   * data = historyData array: [{time:"HH:MM", value:42.5}, ...]
-   */
   function renderLogTable(data) {
-    var t       = i18n[currentLang];
-    var tbody   = document.getElementById('log-tbody');
+    var t = i18n[currentLang];
+    var tbody = document.getElementById('log-tbody');
     var countEl = document.getElementById('log-count');
-
     if (!data || data.length === 0) {
       tbody.innerHTML = '<tr><td colspan="4" id="log-empty-msg" style="text-align:center;padding:24px;color:var(--dim);font-size:0.75rem;">' + t.waiting + '</td></tr>';
-      countEl.textContent = '0 ' + t.records;
-      return;
+      countEl.textContent = '0 ' + t.records; return;
     }
-
     var intervalMins = parseInt(document.getElementById('interval-select').value) || 1;
-    var filtered     = filterByInterval(data, intervalMins);
-
+    var filtered = filterByInterval(data, intervalMins);
     countEl.textContent = filtered.length + ' ' + t.records;
-
     var statusLabel = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
-
-    // Newest on top
     var rows = filtered.slice().reverse();
     tbody.innerHTML = rows.map(function(r, i) {
       var s = getStatus(r.value);
-      return '<tr class="' + (i === 0 ? 'row-new' : '') + '">' +
-        '<td class="td-time">' + (rows.length - i) + '</td>' +
+      return '<tr class="' + (i===0?'row-new':'') + '">' +
+        '<td class="td-time">' + (rows.length-i) + '</td>' +
         '<td class="td-time">' + r.time + '</td>' +
         '<td class="td-level ' + s.cls + '">' + r.value + '</td>' +
         '<td><span class="td-status-pill ' + s.cls + '"><span class="pill-dot"></span>' +
-        (statusLabel[s.cls] || s.cls) + '</span></td></tr>';
+        (statusLabel[s.cls]||s.cls) + '</span></td></tr>';
     }).join('');
   }
 
@@ -1519,11 +1171,11 @@
     var t = i18n[currentLang];
     var intervalMins = parseInt(document.getElementById('interval-select').value) || 1;
     var filtered = filterByInterval(historyData, intervalMins);
-    var header = '#,' + t.datetime + ',' + t.level + ',' + t.status + '';
+    var header = '#,' + t.datetime + ',' + t.level + ',' + t.status + '\n';
     var rows = filtered.slice().reverse().map(function(r, i) {
       return (i+1) + ',"' + r.time + '",' + r.value + ',' + getStatus(r.value).cls;
-    }).join('');
-    var blob = new Blob(['﻿' + header + rows], { type: 'text/csv;charset=utf-8' });
+    }).join('\n');
+    var blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'sensor-log-' + new Date().toISOString().slice(0,10) + '.csv';
@@ -1531,41 +1183,31 @@
   }
 
   function clearLog() {
-    var t = i18n[currentLang];
-    if (!confirm(t.confirmClear)) return;
-    historyData = [];
-    renderLogTable(historyData);
+    if (!confirm(i18n[currentLang].confirmClear)) return;
+    historyData = []; renderLogTable(historyData);
   }
 
-  // ═══════════════════════════════════════
-  //  CHART
-  // ═══════════════════════════════════════
-
-  /**
-   * setRange — chart range buttons (1H / 6H / 24H / 7D)
-   * Fetches new data from API and re-renders BOTH chart AND table.
-   */
+  // Chart
   function setRange(range, btn) {
     currentRange = range;
     document.querySelectorAll('.range-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
-    fetchHistory();   // new data → renderChart + renderLogTable
+    fetchHistory();
   }
 
   function genDemoData(range) {
     var pts   = { '1h': 60, '6h': 72, '24h': 96, '7d': 84 }[range] || 60;
     var spans = { '1h': 3600, '6h': 21600, '24h': 86400, '7d': 604800 };
     var span  = (spans[range] || 3600) * 1000;
-    var now   = Date.now();
-    var base  = 30, arr = [];
+    var now   = Date.now(), base = 30, arr = [];
     for (var i = 0; i < pts; i++) {
       base += (Math.random() - 0.46) * 5;
       base = Math.max(5, Math.min(75, base));
       var ts = new Date(now - span + (span / pts) * i);
       arr.push({
         time: range === '7d'
-          ? ts.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
-          : ts.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', hour12: false }),
+          ? ts.toLocaleDateString('th-TH', { day:'numeric', month:'short' })
+          : ts.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', hour12:false }),
         value: Math.round(base * 10) / 10
       });
     }
@@ -1576,17 +1218,10 @@
     try {
       var res  = await fetch(API_HISTORY + '?range=' + currentRange);
       var json = await res.json();
-      if (json.data && json.data.length > 0) {
-        historyData = json.data;
-        demoMode = false;
-      } else {
-        throw new Error('empty');
-      }
+      if (json.data && json.data.length > 0) { historyData = json.data; demoMode = false; }
+      else throw new Error('empty');
     } catch(e) {
-      if (demoMode) {
-        historyData = genDemoData(currentRange);
-      }
-      console.warn('fetchHistory:', e.message);
+      if (demoMode) historyData = genDemoData(currentRange);
     }
     renderChart(historyData);
     renderLogTable(historyData);
@@ -1601,7 +1236,6 @@
     var ctx = canvas.getContext('2d');
     ctx.scale(devicePixelRatio, devicePixelRatio);
     var W = wrap.clientWidth, H = wrap.clientHeight;
-
     var isLight    = document.body.classList.contains('light');
     var accentColor  = isLight ? '#0077cc' : '#00b4ff';
     var accent2Color = isLight ? '#00aa88' : '#00ffcc';
@@ -1609,488 +1243,252 @@
     var axisColor    = isLight ? '#7a96b0' : '#4a6080';
     var areaTop      = isLight ? 'rgba(0,120,200,0.15)' : 'rgba(0,180,255,0.25)';
     var areaBot      = isLight ? 'rgba(0,120,200,0.02)' : 'rgba(0,180,255,0.04)';
-
-    var vals   = data.map(function(d) { return d.value; });
-    var minVal = 0;    // fixed Y axis
-    var maxVal = 80;   // fixed Y axis
-    var range  = 80;
-    var pad    = { top: 14, right: 8, bottom: 20, left: 36 };
-    var gW = W - pad.left - pad.right;
-    var gH = H - pad.top  - pad.bottom;
-
-    function toX(i) { return pad.left + (i / (data.length - 1)) * gW; }
-    function toY(v) { return pad.top  + (1 - Math.max(0,Math.min(80,v)) / 80) * gH; }
-
-    ctx.clearRect(0, 0, W, H);
-
-    // Threshold lines
-    function drawThresh(cm, color, label) {
-      // Always draw — Y axis is fixed 0-80
-      var y = toY(cm);
-      ctx.save();
-      ctx.setLineDash([4, 4]);
-      ctx.strokeStyle = color + '66';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
-      ctx.fillStyle = color;
-      ctx.font = '9px Share Tech Mono,monospace';
-      ctx.fillText(label, pad.left + 2, y - 3);
-      ctx.restore();
+    var pad = { top:14, right:8, bottom:20, left:36 };
+    var gW = W-pad.left-pad.right, gH = H-pad.top-pad.bottom;
+    function toX(i){return pad.left+(i/(data.length-1))*gW;}
+    function toY(v){return pad.top+(1-Math.max(0,Math.min(80,v))/80)*gH;}
+    ctx.clearRect(0,0,W,H);
+    function drawThresh(cm,color,label){
+      var y=toY(cm); ctx.save(); ctx.setLineDash([4,4]);
+      ctx.strokeStyle=color+'66'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(W-pad.right,y); ctx.stroke();
+      ctx.fillStyle=color; ctx.font='9px Share Tech Mono,monospace';
+      ctx.fillText(label,pad.left+2,y-3); ctx.restore();
     }
-    // Fixed threshold at 50 cm — always visible dashed red line
-    drawThresh(50, '#ff3b3b', '⚠ 50 cm');
-
-    // Y-axis gridlines
-    ctx.save();
-    ctx.strokeStyle = gridColor;
-    ctx.lineWidth = 1;
-    for (var gi = 0; gi <= 4; gi++) {
-      var gy = pad.top + (gi / 4) * gH;
-      ctx.beginPath(); ctx.moveTo(pad.left, gy); ctx.lineTo(W - pad.right, gy); ctx.stroke();
-      ctx.fillStyle = axisColor;
-      ctx.font = '8px Share Tech Mono,monospace';
-      ctx.textAlign = 'right';
-      ctx.fillText(Math.round(maxVal - (gi / 4) * range), pad.left - 4, gy + 3);
+    drawThresh(50,'#ff3b3b','⚠ 50 cm');
+    ctx.save(); ctx.strokeStyle=gridColor; ctx.lineWidth=1;
+    for(var gi=0;gi<=4;gi++){
+      var gy=pad.top+(gi/4)*gH;
+      ctx.beginPath(); ctx.moveTo(pad.left,gy); ctx.lineTo(W-pad.right,gy); ctx.stroke();
+      ctx.fillStyle=axisColor; ctx.font='8px Share Tech Mono,monospace'; ctx.textAlign='right';
+      ctx.fillText(Math.round(80-(gi/4)*80),pad.left-4,gy+3);
     }
     ctx.restore();
-
-    // Area fill
-    var grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + gH);
-    grad.addColorStop(0, areaTop); grad.addColorStop(0.6, areaBot); grad.addColorStop(1, 'transparent');
-    ctx.beginPath();
-    ctx.moveTo(toX(0), toY(data[0].value));
-    for (var i = 1; i < data.length; i++) {
-      var cx = (toX(i-1) + toX(i)) / 2;
-      ctx.bezierCurveTo(cx, toY(data[i-1].value), cx, toY(data[i].value), toX(i), toY(data[i].value));
-    }
-    ctx.lineTo(toX(data.length - 1), pad.top + gH);
-    ctx.lineTo(toX(0), pad.top + gH);
-    ctx.closePath();
-    ctx.fillStyle = grad; ctx.fill();
-
-    // Line
-    ctx.beginPath();
-    ctx.moveTo(toX(0), toY(data[0].value));
-    for (var i = 1; i < data.length; i++) {
-      var cx = (toX(i-1) + toX(i)) / 2;
-      ctx.bezierCurveTo(cx, toY(data[i-1].value), cx, toY(data[i].value), toX(i), toY(data[i].value));
-    }
-    var lineGrad = ctx.createLinearGradient(pad.left, 0, W - pad.right, 0);
-    lineGrad.addColorStop(0, accentColor); lineGrad.addColorStop(1, accent2Color);
-    ctx.strokeStyle = lineGrad; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
-
-    // Last-point dot
-    var lx = toX(data.length - 1), ly = toY(data[data.length - 1].value);
-    ctx.save(); ctx.shadowColor = accentColor; ctx.shadowBlur = 10;
-    ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI * 2);
-    ctx.fillStyle = accent2Color; ctx.fill(); ctx.restore();
-
-    // X labels
-    var labelStep = Math.max(1, Math.floor(data.length / 5));
-    var labels = [];
-    for (var i = 0; i < data.length; i += labelStep) labels.push(data[i].time);
-    document.getElementById('chart-labels').innerHTML = labels.map(function(l) { return '<span>' + l + '</span>'; }).join('');
-
-    // Stats
-    var realVals = data.map(function(d){return d.value;});
-    var realMin  = Math.round(Math.min.apply(null,realVals));
-    var realAvg  = Math.round(realVals.reduce(function(a,b){return a+b;},0)/realVals.length*10)/10;
-    var realMax  = Math.round(Math.max.apply(null,realVals));
-    document.getElementById('stat-min').textContent = realMin;
-    document.getElementById('stat-avg').textContent = realAvg;
-    document.getElementById('stat-max').textContent = realMax;
-    var maxEl = document.getElementById('stat-max');
-    maxEl.style.color = realMax >= T_DANGER ? '#ff3b3b' : realMax >= T_WARN ? '#ffb700' : 'var(--accent)';
+    var grad=ctx.createLinearGradient(0,pad.top,0,pad.top+gH);
+    grad.addColorStop(0,areaTop); grad.addColorStop(0.6,areaBot); grad.addColorStop(1,'transparent');
+    ctx.beginPath(); ctx.moveTo(toX(0),toY(data[0].value));
+    for(var i=1;i<data.length;i++){var cx=(toX(i-1)+toX(i))/2; ctx.bezierCurveTo(cx,toY(data[i-1].value),cx,toY(data[i].value),toX(i),toY(data[i].value));}
+    ctx.lineTo(toX(data.length-1),pad.top+gH); ctx.lineTo(toX(0),pad.top+gH); ctx.closePath();
+    ctx.fillStyle=grad; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(toX(0),toY(data[0].value));
+    for(var i=1;i<data.length;i++){var cx=(toX(i-1)+toX(i))/2; ctx.bezierCurveTo(cx,toY(data[i-1].value),cx,toY(data[i].value),toX(i),toY(data[i].value));}
+    var lg=ctx.createLinearGradient(pad.left,0,W-pad.right,0);
+    lg.addColorStop(0,accentColor); lg.addColorStop(1,accent2Color);
+    ctx.strokeStyle=lg; ctx.lineWidth=2; ctx.lineJoin='round'; ctx.stroke();
+    var lx=toX(data.length-1),ly=toY(data[data.length-1].value);
+    ctx.save(); ctx.shadowColor=accentColor; ctx.shadowBlur=10;
+    ctx.beginPath(); ctx.arc(lx,ly,4,0,Math.PI*2); ctx.fillStyle=accent2Color; ctx.fill(); ctx.restore();
+    var labelStep=Math.max(1,Math.floor(data.length/5));
+    var labels=[];
+    for(var i=0;i<data.length;i+=labelStep) labels.push(data[i].time);
+    document.getElementById('chart-labels').innerHTML=labels.map(function(l){return'<span>'+l+'</span>';}).join('');
+    var realVals=data.map(function(d){return d.value;});
+    var realMin=Math.round(Math.min.apply(null,realVals));
+    var realAvg=Math.round(realVals.reduce(function(a,b){return a+b;},0)/realVals.length*10)/10;
+    var realMax=Math.round(Math.max.apply(null,realVals));
+    document.getElementById('stat-min').textContent=realMin;
+    document.getElementById('stat-avg').textContent=realAvg;
+    var maxEl=document.getElementById('stat-max'); maxEl.textContent=realMax;
+    maxEl.style.color=realMax>=T_DANGER?'#ff3b3b':realMax>=T_WARN?'#ffb700':'var(--accent)';
   }
 
-  // ═══════════════════════════════════════
-  //  DATA FETCHERS
-  // ═══════════════════════════════════════
+  // Data fetchers
   async function fetchWater() {
     try {
-      var res  = await fetch(API_WATER);
-      var data = await res.json();
-      var lvl  = parseFloat(data.data.water_level) || 0;
-      currentLevel = lvl;
-      updateUI(lvl);
+      var res=await fetch(API_WATER); var data=await res.json();
+      var lvl=parseFloat(data.data.water_level)||0; currentLevel=lvl; updateUI(lvl);
     } catch(e) { console.warn('Water fetch failed:', e); }
   }
 
   async function fetchCCTV() {
     try {
-      var res  = await fetch(API_CCTV);
-      var data = await res.json();
-      if (data.image_base64) {
-        document.getElementById('cctv-frame').src = data.image_base64;
+      var res=await fetch(API_CCTV); var data=await res.json();
+      if(data.image_base64){
+        document.getElementById('cctv-frame').src=data.image_base64;
         frameCount++;
-        document.getElementById('frame-counter').textContent = 'FRAME ' + frameCount + '/∞';
-        var _t   = new Date().toLocaleTimeString('th-TH', { hour12: false });
-        var _tsEl = document.getElementById('update-ts');
-        _tsEl.setAttribute('data-time', _t);
-        _tsEl.textContent = i18n[currentLang].lastUpdatePfx + _t;
+        document.getElementById('frame-counter').textContent='FRAME '+frameCount+'/∞';
+        var _t=new Date().toLocaleTimeString('th-TH',{hour12:false});
+        var _tsEl=document.getElementById('update-ts');
+        _tsEl.setAttribute('data-time',_t);
+        _tsEl.textContent=i18n[currentLang].lastUpdatePfx+_t;
       }
     } catch(e) { console.warn('CCTV fetch failed:', e); }
   }
 
-  // ═══════════════════════════════════════
-  //  THEME TOGGLE
-  // ═══════════════════════════════════════
+  // Theme
   function toggleTheme() {
-    var isLight = document.body.classList.toggle('light');
-    var t = i18n[currentLang];
-    document.getElementById('theme-label').textContent = isLight ? t.themeLight : t.themeDark;
-    localStorage.setItem('elo-theme', isLight ? 'light' : 'dark');
-    if (historyData.length) setTimeout(function(){ renderChart(historyData); }, 50);
+    var isLight=document.body.classList.toggle('light');
+    var t=i18n[currentLang];
+    document.getElementById('theme-label').textContent=isLight?t.themeLight:t.themeDark;
+    localStorage.setItem('elo-theme',isLight?'light':'dark');
+    if(historyData.length) setTimeout(function(){renderChart(historyData);},50);
   }
-  if (localStorage.getItem('elo-theme') === 'light') {
+  if(localStorage.getItem('elo-theme')==='light'){
     document.body.classList.add('light');
-    document.addEventListener('DOMContentLoaded', function() {
-      var lbl = document.getElementById('theme-label');
-      if (lbl) lbl.textContent = i18n[currentLang].themeLight;
+    document.addEventListener('DOMContentLoaded',function(){
+      var lbl=document.getElementById('theme-label');
+      if(lbl) lbl.textContent=i18n[currentLang].themeLight;
     });
   }
 
-  // ═══════════════════════════════════════
-  //  MAP
-  // ═══════════════════════════════════════
-  var STATION_LAT = 14.5832, STATION_LNG = 100.9894;
-  var map = L.map('map-container', {
-    center: [STATION_LAT, STATION_LNG], zoom: 14,
-    zoomControl: false, scrollWheelZoom: false, dragging: false,
-  });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap', maxZoom: 19,
-  }).addTo(map);
-  var pulseIcon = L.divIcon({
-    className: '',
-    html: '<div style="width:16px;height:16px;border-radius:50%;background:#00b4ff;box-shadow:0 0 0 0 rgba(0,180,255,0.8);animation:map-ping 1.5s ease-out infinite;border:2px solid #00ffcc;"></div><style>@keyframes map-ping{0%{box-shadow:0 0 0 0 rgba(0,180,255,0.8)}70%{box-shadow:0 0 0 16px transparent}100%{box-shadow:0 0 0 0 transparent}}</style>',
-    iconSize: [16,16], iconAnchor: [8,8],
-  });
-  L.marker([STATION_LAT, STATION_LNG], { icon: pulseIcon })
-    .addTo(map)
+  // Map
+  var STATION_LAT=14.5832, STATION_LNG=100.9894;
+  var map=L.map('map-container',{center:[STATION_LAT,STATION_LNG],zoom:14,zoomControl:false,scrollWheelZoom:false,dragging:false});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+  var pulseIcon=L.divIcon({className:'',html:'<div style="width:16px;height:16px;border-radius:50%;background:#00b4ff;box-shadow:0 0 0 0 rgba(0,180,255,0.8);animation:map-ping 1.5s ease-out infinite;border:2px solid #00ffcc;"></div><style>@keyframes map-ping{0%{box-shadow:0 0 0 0 rgba(0,180,255,0.8)}70%{box-shadow:0 0 0 16px transparent}100%{box-shadow:0 0 0 0 transparent}}</style>',iconSize:[16,16],iconAnchor:[8,8]});
+  L.marker([STATION_LAT,STATION_LNG],{icon:pulseIcon}).addTo(map)
     .bindPopup('<b style="font-family:Rajdhani,sans-serif;color:#00b4ff">Smart ELO Station</b><br><small style="font-family:Share Tech Mono,monospace;color:#4a6080">Water Level Monitor</small>')
     .openPopup();
 
-  // ═══════════════════════════════════════
-  //  MOBILE TAB SWITCHING
-  // ═══════════════════════════════════════
-  var mobileSections = {
-    stats: ['sec-metrics','sec-stats'],
-    map:   ['sec-map'],
-    chart: ['sec-chart'],
-    log:   ['sec-log'],
-  };
-  function mobileTab(tab, btn) {
-    if (window.innerWidth > 768) return;
-    document.querySelectorAll('.mobile-section').forEach(function(el){ el.classList.remove('visible'); });
-    (mobileSections[tab] || []).forEach(function(id){
-      var el = document.getElementById(id); if (el) el.classList.add('visible');
-    });
-    document.querySelectorAll('.bnav-item').forEach(function(b){ b.classList.remove('active'); });
+  // Mobile tabs
+  var mobileSections={stats:['sec-metrics','sec-stats'],map:['sec-map'],chart:['sec-chart'],log:['sec-log']};
+  function mobileTab(tab,btn){
+    if(window.innerWidth>768) return;
+    document.querySelectorAll('.mobile-section').forEach(function(el){el.classList.remove('visible');});
+    (mobileSections[tab]||[]).forEach(function(id){var el=document.getElementById(id);if(el)el.classList.add('visible');});
+    document.querySelectorAll('.bnav-item').forEach(function(b){b.classList.remove('active');});
     btn.classList.add('active');
-    if (tab === 'chart' && historyData.length) setTimeout(function(){ renderChart(historyData); }, 50);
-    if (tab === 'map')  setTimeout(function(){ map.invalidateSize(); }, 100);
+    if(tab==='chart'&&historyData.length) setTimeout(function(){renderChart(historyData);},50);
+    if(tab==='map') setTimeout(function(){map.invalidateSize();},100);
   }
-  window.addEventListener('resize', function() {
-    if (window.innerWidth > 768)
-      document.querySelectorAll('.mobile-section').forEach(function(el){ el.classList.add('visible'); });
-    if (historyData.length) renderChart(historyData);
+  window.addEventListener('resize',function(){
+    if(window.innerWidth>768) document.querySelectorAll('.mobile-section').forEach(function(el){el.classList.add('visible');});
+    if(historyData.length) renderChart(historyData);
   });
 
-  // ═══════════════════════════════════════
-  //  INIT
-  // ═══════════════════════════════════════
-  applyLang();
-  fetchWater();
-  fetchCCTV();
-  fetchHistory();
-  setInterval(fetchWater,   3000);
-  setInterval(fetchCCTV,    3000);
-  setInterval(fetchHistory, 30000);
-
-  // ═══════════════════════════════════════
-  //  EXPAND MODAL SYSTEM
-  // ═══════════════════════════════════════
-  var modalMap = null; // Leaflet map instance inside modal
-
-  function openModal(type) {
-    var overlay = document.getElementById('modal-overlay');
-    var body    = document.getElementById('modal-body');
-    var title   = document.getElementById('modal-title');
-    var t       = i18n[currentLang];
-
-    body.innerHTML = ''; // clear
-
-    if (type === 'cctv') {
-      title.textContent = t.cameraFeed + ' — ' + t.camName;
-      body.style.padding = '0';
-      body.innerHTML =
-        '<div class="modal-cctv-wrap" style="flex:1;min-height:50vh;">' +
-          '<img id="modal-cctv-img" style="width:100%;height:100%;object-fit:contain;background:#000;" ' +
-            'src="' + (document.getElementById('cctv-frame').src) + '">' +
-          '<div class="scanline"></div>' +
-          '<div class="corner c-tl"></div><div class="corner c-tr"></div>' +
-          '<div class="corner c-bl"></div><div class="corner c-br"></div>' +
-          '<div class="hud-overlay">' +
-            '<div class="hud-tag" id="modal-hud-time">' + document.getElementById('hud-time').textContent + '</div>' +
-            '<div class="rec-badge"><span class="rec-dot"></span>REC</div>' +
-          '</div>' +
-        '</div>';
-      // Mirror CCTV updates into modal
-      window._modalCctvActive = true;
-
-    } else if (type === 'map') {
-      title.textContent = t.stationLoc;
-      body.innerHTML = '<div id="modal-map-container"></div>';
-      // Init Leaflet inside modal after DOM is ready
-      setTimeout(function() {
-        if (modalMap) { modalMap.remove(); modalMap = null; }
-        modalMap = L.map('modal-map-container', {
-          center: [STATION_LAT, STATION_LNG], zoom: 15,
-          zoomControl: true, scrollWheelZoom: true, dragging: true,
-        });
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap', maxZoom: 19,
-        }).addTo(modalMap);
-        L.marker([STATION_LAT, STATION_LNG], { icon: pulseIcon })
-          .addTo(modalMap)
-          .bindPopup('<b style="font-family:Rajdhani,sans-serif;color:#00b4ff">Smart ELO Station</b>')
-          .openPopup();
+  // Modal
+  var modalMap=null;
+  function openModal(type){
+    var overlay=document.getElementById('modal-overlay');
+    var body=document.getElementById('modal-body');
+    var title=document.getElementById('modal-title');
+    var t=i18n[currentLang];
+    body.innerHTML='';
+    if(type==='cctv'){
+      title.textContent=t.cameraFeed+' — '+t.camName;
+      body.style.padding='0';
+      body.innerHTML='<div class="modal-cctv-wrap" style="flex:1;min-height:50vh;"><img id="modal-cctv-img" style="width:100%;height:100%;object-fit:contain;background:#000;" src="'+document.getElementById('cctv-frame').src+'"><div class="scanline"></div><div class="corner c-tl"></div><div class="corner c-tr"></div><div class="corner c-bl"></div><div class="corner c-br"></div><div class="hud-overlay"><div class="hud-tag" id="modal-hud-time">'+document.getElementById('hud-time').textContent+'</div><div class="rec-badge"><span class="rec-dot"></span>REC</div></div></div>';
+      window._modalCctvActive=true;
+    } else if(type==='map'){
+      title.textContent=t.stationLoc;
+      body.innerHTML='<div id="modal-map-container"></div>';
+      setTimeout(function(){
+        if(modalMap){modalMap.remove();modalMap=null;}
+        modalMap=L.map('modal-map-container',{center:[STATION_LAT,STATION_LNG],zoom:15,zoomControl:true,scrollWheelZoom:true,dragging:true});
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(modalMap);
+        L.marker([STATION_LAT,STATION_LNG],{icon:pulseIcon}).addTo(modalMap).bindPopup('<b style="font-family:Rajdhani,sans-serif;color:#00b4ff">Smart ELO Station</b>').openPopup();
         modalMap.invalidateSize();
-      }, 80);
-
-    } else if (type === 'chart') {
-      title.textContent = t.chartTitle;
-      body.innerHTML =
-        '<div class="modal-chart-wrap">' +
-          '<canvas id="modal-chart-canvas"></canvas>' +
-        '</div>' +
-        '<div class="chart-labels" id="modal-chart-labels" style="margin-top:6px;"></div>' +
-        '<div class="chart-stats" style="margin-top:8px;">' +
-          '<div class="chart-stat"><div class="chart-stat-val" id="modal-stat-min">--</div><div class="chart-stat-lbl">' + t.minCm + '</div></div>' +
-          '<div class="chart-stat"><div class="chart-stat-val" id="modal-stat-avg">--</div><div class="chart-stat-lbl">' + t.avgCm + '</div></div>' +
-          '<div class="chart-stat"><div class="chart-stat-val" id="modal-stat-max">--</div><div class="chart-stat-lbl">' + t.maxCm + '</div></div>' +
-        '</div>';
-      setTimeout(function() { renderModalChart(historyData); }, 80);
-
-    } else if (type === 'log') {
-      title.textContent = t.sensorLog;
-      var intervalMins = parseInt(document.getElementById('interval-select').value) || 1;
-      var filtered = filterByInterval(historyData, intervalMins);
-      var statusLabel = { ok: t.statusNormal, warn: t.statusWarning, danger: t.statusCrit };
-      var rows = filtered.slice().reverse().map(function(r, i) {
-        var s = getStatus(r.value);
-        return '<tr class="' + (i===0?'row-new':'') + '">' +
-          '<td class="td-time">' + (filtered.length-i) + '</td>' +
-          '<td class="td-time">' + r.time + '</td>' +
-          '<td class="td-level ' + s.cls + '">' + r.value + '</td>' +
-          '<td><span class="td-status-pill ' + s.cls + '"><span class="pill-dot"></span>' + statusLabel[s.cls] + '</span></td>' +
-          '</tr>';
+      },80);
+    } else if(type==='chart'){
+      title.textContent=t.chartTitle;
+      body.innerHTML='<div class="modal-chart-wrap"><canvas id="modal-chart-canvas"></canvas></div><div class="chart-labels" id="modal-chart-labels" style="margin-top:6px;"></div><div class="chart-stats" style="margin-top:8px;"><div class="chart-stat"><div class="chart-stat-val" id="modal-stat-min">--</div><div class="chart-stat-lbl">'+t.minCm+'</div></div><div class="chart-stat"><div class="chart-stat-val" id="modal-stat-avg">--</div><div class="chart-stat-lbl">'+t.avgCm+'</div></div><div class="chart-stat"><div class="chart-stat-val" id="modal-stat-max">--</div><div class="chart-stat-lbl">'+t.maxCm+'</div></div></div>';
+      setTimeout(function(){renderModalChart(historyData);},80);
+    } else if(type==='log'){
+      title.textContent=t.sensorLog;
+      var intervalMins=parseInt(document.getElementById('interval-select').value)||1;
+      var filtered=filterByInterval(historyData,intervalMins);
+      var statusLabel={ok:t.statusNormal,warn:t.statusWarning,danger:t.statusCrit};
+      var rows=filtered.slice().reverse().map(function(r,i){
+        var s=getStatus(r.value);
+        return '<tr class="'+(i===0?'row-new':'')+'"><td class="td-time">'+(filtered.length-i)+'</td><td class="td-time">'+r.time+'</td><td class="td-level '+s.cls+'">'+r.value+'</td><td><span class="td-status-pill '+s.cls+'"><span class="pill-dot"></span>'+statusLabel[s.cls]+'</span></td></tr>';
       }).join('');
-      body.innerHTML =
-        '<div class="modal-log-wrap">' +
-          '<table class="log-table" style="width:100%;">' +
-            '<thead><tr>' +
-              '<th>#</th><th>' + t.datetime + '</th><th>' + t.level + '</th><th>' + t.status + '</th>' +
-            '</tr></thead>' +
-            '<tbody>' + (rows || '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--dim);">' + t.waiting + '</td></tr>') + '</tbody>' +
-          '</table>' +
-        '</div>';
+      body.innerHTML='<div class="modal-log-wrap"><table class="log-table" style="width:100%;"><thead><tr><th>#</th><th>'+t.datetime+'</th><th>'+t.level+'</th><th>'+t.status+'</th></tr></thead><tbody>'+(rows||'<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--dim);">'+t.waiting+'</td></tr>')+'</tbody></table></div>';
     }
-
     overlay.classList.add('open');
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow='hidden';
   }
 
-  function renderModalChart(data) {
-    var canvas = document.getElementById('modal-chart-canvas');
-    if (!canvas || !data || !data.length) return;
-    var wrap = canvas.parentElement;
-    canvas.width  = wrap.clientWidth  * devicePixelRatio;
-    canvas.height = wrap.clientHeight * devicePixelRatio;
-    var ctx = canvas.getContext('2d');
-    ctx.scale(devicePixelRatio, devicePixelRatio);
-    var W = wrap.clientWidth, H = wrap.clientHeight;
-    var isLight = document.body.classList.contains('light');
-    var accentColor  = isLight ? '#0077cc' : '#00b4ff';
-    var accent2Color = isLight ? '#00aa88' : '#00ffcc';
-    var gridColor    = isLight ? 'rgba(0,120,200,0.08)' : 'rgba(0,180,255,0.06)';
-    var axisColor    = isLight ? '#7a96b0' : '#4a6080';
-    var areaTop      = isLight ? 'rgba(0,120,200,0.15)' : 'rgba(0,180,255,0.25)';
-    var areaBot      = isLight ? 'rgba(0,120,200,0.02)' : 'rgba(0,180,255,0.04)';
-    var vals   = data.map(function(d){return d.value;});
-    var minVal = Math.min.apply(null,vals), maxVal = Math.max.apply(null,vals);
-    var range  = maxVal - minVal || 1;
-    var pad    = {top:14,right:12,bottom:24,left:40};
-    var gW = W-pad.left-pad.right, gH = H-pad.top-pad.bottom;
+  function renderModalChart(data){
+    var canvas=document.getElementById('modal-chart-canvas');
+    if(!canvas||!data||!data.length) return;
+    var wrap=canvas.parentElement;
+    canvas.width=wrap.clientWidth*devicePixelRatio; canvas.height=wrap.clientHeight*devicePixelRatio;
+    var ctx=canvas.getContext('2d'); ctx.scale(devicePixelRatio,devicePixelRatio);
+    var W=wrap.clientWidth,H=wrap.clientHeight;
+    var isLight=document.body.classList.contains('light');
+    var accentColor=isLight?'#0077cc':'#00b4ff',accent2Color=isLight?'#00aa88':'#00ffcc';
+    var gridColor=isLight?'rgba(0,120,200,0.08)':'rgba(0,180,255,0.06)',axisColor=isLight?'#7a96b0':'#4a6080';
+    var areaTop=isLight?'rgba(0,120,200,0.15)':'rgba(0,180,255,0.25)',areaBot=isLight?'rgba(0,120,200,0.02)':'rgba(0,180,255,0.04)';
+    var vals=data.map(function(d){return d.value;});
+    var pad={top:14,right:12,bottom:24,left:40};
+    var gW=W-pad.left-pad.right,gH=H-pad.top-pad.bottom;
     function toX(i){return pad.left+(i/(data.length-1))*gW;}
-    function toY(v){return pad.top+(1-(v-minVal)/range)*gH;}
+    function toY(v){return pad.top+(1-Math.max(0,Math.min(80,v))/80)*gH;}
     ctx.clearRect(0,0,W,H);
-    // Grid
     ctx.save(); ctx.strokeStyle=gridColor; ctx.lineWidth=1;
     for(var gi=0;gi<=5;gi++){
       var gy=pad.top+(gi/5)*gH;
       ctx.beginPath();ctx.moveTo(pad.left,gy);ctx.lineTo(W-pad.right,gy);ctx.stroke();
       ctx.fillStyle=axisColor;ctx.font='9px Share Tech Mono,monospace';ctx.textAlign='right';
-      ctx.fillText(Math.round(maxVal-(gi/5)*range),pad.left-5,gy+3);
+      ctx.fillText(Math.round(80-(gi/5)*80),pad.left-5,gy+3);
     }
     ctx.restore();
-    // Thresholds
-    function drawT(cm,col,lbl){
-      if(cm<minVal-2||cm>maxVal+2)return;
-      var y=toY(cm);
-      ctx.save();ctx.setLineDash([4,4]);ctx.strokeStyle=col+'88';ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();
-      ctx.fillStyle=col;ctx.font='10px Share Tech Mono,monospace';ctx.fillText(lbl,pad.left+3,y-4);ctx.restore();
-    }
-    drawT(T_WARN,'#ffb700','WARN'); drawT(T_DANGER,'#ff3b3b','CRIT');
-    // Area
+    function drawT(cm,col,lbl){var y=toY(cm);ctx.save();ctx.setLineDash([4,4]);ctx.strokeStyle=col+'99';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();ctx.fillStyle=col;ctx.font='10px Share Tech Mono,monospace';ctx.fillText(lbl,pad.left+4,y-4);ctx.restore();}
+    drawT(50,'#ff3b3b','⚠ 50 cm');
     var grad=ctx.createLinearGradient(0,pad.top,0,pad.top+gH);
     grad.addColorStop(0,areaTop);grad.addColorStop(0.7,areaBot);grad.addColorStop(1,'transparent');
     ctx.beginPath();ctx.moveTo(toX(0),toY(data[0].value));
     for(var i=1;i<data.length;i++){var cx=(toX(i-1)+toX(i))/2;ctx.bezierCurveTo(cx,toY(data[i-1].value),cx,toY(data[i].value),toX(i),toY(data[i].value));}
     ctx.lineTo(toX(data.length-1),pad.top+gH);ctx.lineTo(toX(0),pad.top+gH);ctx.closePath();
     ctx.fillStyle=grad;ctx.fill();
-    // Line
     ctx.beginPath();ctx.moveTo(toX(0),toY(data[0].value));
     for(var i=1;i<data.length;i++){var cx=(toX(i-1)+toX(i))/2;ctx.bezierCurveTo(cx,toY(data[i-1].value),cx,toY(data[i].value),toX(i),toY(data[i].value));}
     var lg=ctx.createLinearGradient(pad.left,0,W-pad.right,0);lg.addColorStop(0,accentColor);lg.addColorStop(1,accent2Color);
     ctx.strokeStyle=lg;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.stroke();
-    // Last dot
     var lx=toX(data.length-1),ly=toY(data[data.length-1].value);
     ctx.save();ctx.shadowColor=accentColor;ctx.shadowBlur=12;
     ctx.beginPath();ctx.arc(lx,ly,5,0,Math.PI*2);ctx.fillStyle=accent2Color;ctx.fill();ctx.restore();
-    // X labels
-    var step=Math.max(1,Math.floor(data.length/8));
-    var lbls=[];for(var i=0;i<data.length;i+=step)lbls.push(data[i].time);
+    var step=Math.max(1,Math.floor(data.length/8)),lbls=[];
+    for(var i=0;i<data.length;i+=step)lbls.push(data[i].time);
     var labelsEl=document.getElementById('modal-chart-labels');
     if(labelsEl)labelsEl.innerHTML=lbls.map(function(l){return'<span>'+l+'</span>';}).join('');
-    // Stats
-    var avg=vals.reduce(function(a,b){return a+b;},0)/vals.length;
-    var minEl=document.getElementById('modal-stat-min');
-    var avgEl=document.getElementById('modal-stat-avg');
-    var maxEl=document.getElementById('modal-stat-max');
-    if(minEl)minEl.textContent=Math.round(minVal);
-    if(avgEl)avgEl.textContent=Math.round(avg*10)/10;
-    if(maxEl){maxEl.textContent=Math.round(maxVal);maxEl.style.color=maxVal>=T_DANGER?'#ff3b3b':maxVal>=T_WARN?'#ffb700':'var(--accent)';}
+    var realMin=Math.round(Math.min.apply(null,vals)),realMax=Math.round(Math.max.apply(null,vals));
+    var realAvg=Math.round(vals.reduce(function(a,b){return a+b;},0)/vals.length*10)/10;
+    var minEl=document.getElementById('modal-stat-min'),avgEl=document.getElementById('modal-stat-avg'),maxEl=document.getElementById('modal-stat-max');
+    if(minEl)minEl.textContent=realMin; if(avgEl)avgEl.textContent=realAvg;
+    if(maxEl){maxEl.textContent=realMax;maxEl.style.color=realMax>=T_DANGER?'#ff3b3b':realMax>=T_WARN?'#ffb700':'var(--accent)';}
   }
 
-  function closeModal() {
+  function closeModal(){
     document.getElementById('modal-overlay').classList.remove('open');
-    document.body.style.overflow = '';
-    window._modalCctvActive = false;
-    if (modalMap) { modalMap.remove(); modalMap = null; }
+    document.body.style.overflow=''; window._modalCctvActive=false;
+    if(modalMap){modalMap.remove();modalMap=null;}
   }
+  function closeModalOutside(e){if(e.target===document.getElementById('modal-overlay'))closeModal();}
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal();});
 
-  function closeModalOutside(e) {
-    if (e.target === document.getElementById('modal-overlay')) closeModal();
-  }
-
-  // Keyboard ESC to close
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeModal();
-  });
-
-  // Mirror live CCTV frames into modal when open
-  var _origFetchCCTV = fetchCCTV;
-  // After fetchCCTV updates the main frame, also update modal frame if open
-  // We hook into the cctv img src update
-  var _cctvObserver = new MutationObserver(function() {
-    if (window._modalCctvActive) {
-      var modalImg = document.getElementById('modal-cctv-img');
-      var mainImg  = document.getElementById('cctv-frame');
-      if (modalImg && mainImg) modalImg.src = mainImg.src;
-      var modalTime = document.getElementById('modal-hud-time');
-      var mainTime  = document.getElementById('hud-time');
-      if (modalTime && mainTime) modalTime.textContent = mainTime.textContent;
+  var _cctvObserver=new MutationObserver(function(){
+    if(window._modalCctvActive){
+      var modalImg=document.getElementById('modal-cctv-img'),mainImg=document.getElementById('cctv-frame');
+      if(modalImg&&mainImg)modalImg.src=mainImg.src;
+      var modalTime=document.getElementById('modal-hud-time'),mainTime=document.getElementById('hud-time');
+      if(modalTime&&mainTime)modalTime.textContent=mainTime.textContent;
     }
   });
-  _cctvObserver.observe(document.getElementById('cctv-frame'), { attributes: true, attributeFilter: ['src'] });
+  _cctvObserver.observe(document.getElementById('cctv-frame'),{attributes:true,attributeFilter:['src']});
 
-
-  // ═══════════════════════════════════════
-  //  INTRO SCREEN
-  // ═══════════════════════════════════════
-  (function() {
-    var screen  = document.getElementById('intro-screen');
-    var video   = document.getElementById('intro-video');
-    var fill    = document.getElementById('intro-progress-fill');
-    var done    = false;
-
-    function dismiss() {
-      if (done) return;
-      done = true;
-      screen.classList.add('fade-out');
-      setTimeout(function() { screen.classList.add('hidden'); }, 850);
-    }
-
-    window.skipIntro = dismiss;
-
-    // Auto-dismiss when video ends
-    if (video) {
-      video.addEventListener('ended', dismiss);
-
-      // Update progress bar
-      video.addEventListener('timeupdate', function() {
-        if (video.duration && fill) {
-          fill.style.width = (video.currentTime / video.duration * 100) + '%';
-        }
-      });
-
-      // If video fails to load/play → show for 3s then dismiss
-      video.addEventListener('error', function() {
-        setTimeout(dismiss, 3000);
-      });
-
-      // If video can't auto-play (browser policy) → dismiss after 3s
-      var playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(function() {
-          // Auto-play blocked — show static for 3s
-          setTimeout(dismiss, 3000);
-        });
-      }
-    } else {
-      // No video element → dismiss after 3s
-      setTimeout(dismiss, 3000);
-    }
+  // Intro screen
+  (function(){
+    var screen=document.getElementById('intro-screen'),video=document.getElementById('intro-video'),fill=document.getElementById('intro-progress-fill'),done=false;
+    function dismiss(){if(done)return;done=true;screen.classList.add('fade-out');setTimeout(function(){screen.classList.add('hidden');},850);}
+    window.skipIntro=dismiss;
+    if(video){
+      video.addEventListener('ended',dismiss);
+      video.addEventListener('timeupdate',function(){if(video.duration&&fill)fill.style.width=(video.currentTime/video.duration*100)+'%';});
+      video.addEventListener('error',function(){setTimeout(dismiss,3000);});
+      var playPromise=video.play();
+      if(playPromise!==undefined)playPromise.catch(function(){setTimeout(dismiss,3000);});
+    } else {setTimeout(dismiss,3000);}
   })();
 
+  // Init
+  applyLang();
+  fetchWater();
+  fetchCCTV();
+  fetchHistory();
+  setInterval(fetchWater,  3000);
+  setInterval(fetchCCTV,   3000);
+  setInterval(fetchHistory,30000);
 </script>
-<!-- BOTTOM NAV (mobile only) -->
-<nav class="bottom-nav" id="bottom-nav">
-  <button class="bnav-item active" onclick="mobileTab('stats',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-    DATA
-  </button>
-  <button class="bnav-item" onclick="mobileTab('map',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-    MAP
-  </button>
-  <button class="bnav-item" onclick="mobileTab('chart',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-    GRAPH
-  </button>
-  <button class="bnav-item" onclick="mobileTab('log',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-    LOG
-  </button>
-</nav>
-
-
-<!-- ═══════════════════════════════════════════════
-     EXPAND MODALS
-═══════════════════════════════════════════════ -->
-<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
-  <div class="modal-box" id="modal-box">
-    <div class="modal-header">
-      <div class="modal-title" id="modal-title">EXPAND</div>
-      <button class="modal-close" onclick="closeModal()">✕</button>
-    </div>
-    <div class="modal-body" id="modal-body">
-      <!-- content injected by JS -->
-    </div>
-  </div>
-</div>
 </body>
 </html>
