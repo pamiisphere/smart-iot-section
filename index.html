@@ -147,24 +147,25 @@
 
     /* ─── Main grid ─── */
     .main {
-      position:relative; z-index:1;
+      position: relative; z-index: 1;
       display: grid;
       grid-template-columns: 1fr 480px;
-      grid-template-rows: auto auto;
       gap: 0;
-      padding: 16px;
+      padding: 12px;
       height: calc(100vh - 57px);
+      overflow: hidden;
     }
 
     /* ─── CCTV Panel (left) ─── */
     .cctv-panel {
-      grid-row: 1 / 3;
+      grid-row: 1 / 2;
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 12px 0 0 12px;
       display: flex; flex-direction: column;
       overflow: hidden;
       margin-right: 1px;
+      min-height: 0;  /* ← สำคัญมาก */
     }
     .cctv-header {
       display:flex; align-items:center; justify-content:space-between;
@@ -246,20 +247,26 @@
 
     /* ─── Right column ─── */
     .right-col {
-      display:flex; flex-direction:column; gap:1px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-height: 0;        /* ← สำคัญมาก */
+      overflow: hidden;
     }
 
     /* ─── Metrics row (top-right) ─── */
     .metrics-row {
-      display:grid; grid-template-columns: 1fr 1fr;
-      gap:1px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      flex-shrink: 0;  /* ← ไม่ให้ยุบ */
     }
     .metric-card {
       background: var(--panel);
-      padding: 20px 16px;
-      display:flex; flex-direction:column; align-items:center;
+      padding: 12px 16px;   /* ← ลด padding จาก 20px */
+      display: flex; flex-direction: column; align-items: center;
       border: 1px solid var(--border);
-      position:relative; overflow:hidden;
+      position: relative; overflow: hidden;
     }
     .metric-card:nth-child(1) { border-radius: 0 12px 0 0; }
     .metric-card .m-label {
@@ -267,8 +274,9 @@
       color:var(--dim); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px;
     }
     .metric-card .m-value {
-      font-family:'Rajdhani',sans-serif; font-weight:700; font-size:3.4rem;
-      line-height:1; color:#fff;
+      font-family: 'Rajdhani', sans-serif; font-weight: 700;
+      font-size: 2.8rem;    /* ← ลดจาก 3.4rem */
+      line-height: 1; color: #fff;
     }
     .metric-card .m-unit {
       font-family:'Share Tech Mono',monospace; font-size:0.65rem; color:var(--accent); letter-spacing:1px; margin-top:6px;
@@ -287,8 +295,9 @@
 
     .status-card {
       background: var(--panel); border: 1px solid var(--border);
-      grid-column: 1/-1; padding:12px 16px;
-      display:flex; align-items:center; gap:10px;
+      grid-column: 1/-1; padding: 8px 16px;  /* ← ลด padding */
+      display: flex; align-items: center; gap: 10px;
+      flex-shrink: 0;
     }
     .status-indicator {
       width:8px; height:8px; border-radius:50%;
@@ -357,8 +366,8 @@
     .log-table-wrap {
       overflow-y: auto;
       overflow-x: hidden;
-      max-height: 168px;
-      min-height: 60px;
+      flex: 1;              /* ← กินพื้นที่ที่เหลือใน log panel */
+      min-height: 0;
     }
     .log-table-wrap::-webkit-scrollbar { width: 3px; }
     .log-table-wrap::-webkit-scrollbar-track { background: transparent; }
@@ -434,8 +443,9 @@
     /* ─── Map panel ─── */
     .map-panel {
       background: var(--panel); border: 1px solid var(--border);
-      padding: 10px 14px 10px;
-      display:flex; flex-direction:column; gap:6px;
+      padding: 8px 14px;    /* ← ลด padding */
+      display: flex; flex-direction: column; gap: 4px;
+      flex-shrink: 0;
     }
     .map-header {
       display:flex; align-items:center; justify-content:space-between;
@@ -445,7 +455,8 @@
       font-family:'Share Tech Mono',monospace; font-size:0.58rem; color:var(--accent2); letter-spacing:1px;
     }
     #map-container {
-      height: 200px; border-radius:6px; overflow:hidden;
+      height: 150px;        /* ← ลดจาก 200px */
+      border-radius: 6px; overflow: hidden;
       border: 1px solid var(--border);
       filter: saturate(0.5) brightness(0.75) hue-rotate(180deg);
       transition: filter 0.3s;
@@ -455,8 +466,9 @@
     .leaflet-control-attribution a { color: #4a6080 !important; }
     .chart-panel {
       background: var(--panel); border: 1px solid var(--border);
-      padding: 12px 14px;
-      display:flex; flex-direction:column; gap:8px;
+      padding: 8px 14px;    /* ← ลด padding */
+      display: flex; flex-direction: column; gap: 4px;
+      flex-shrink: 0;
     }
     .chart-header {
       display:flex; align-items:center; justify-content:space-between;
@@ -470,7 +482,7 @@
     }
     .range-btn:hover, .range-btn.active { background:rgba(0,180,255,0.15); color:var(--accent); border-color:rgba(0,180,255,0.4); }
     .chart-canvas-wrap {
-      position:relative; height:110px;
+      position: relative; height: 80px;  /* ← ลดจาก 110px */
     }
     #history-canvas {
       width:100%; height:100%; display:block;
@@ -535,7 +547,11 @@
       #map-container { height: 180px; }
       .chart-panel { border-radius: 10px; border: 1px solid var(--border); }
       .chart-canvas-wrap { height: 130px; }
-      .log-panel { border-radius: 10px; border: 1px solid var(--border); }
+      .log-panel { background: var(--panel); border: 1px solid var(--border);
+          border-radius: 0 0 12px 0;
+          flex: 1;              /* ← กินพื้นที่ที่เหลือ */
+          display: flex; flex-direction: column; overflow: hidden;
+          min-height: 0;        /* ← สำคัญมาก */ }
     }
 
     /* ── Mobile portrait (≤480px) ── */
@@ -673,17 +689,20 @@
     #intro-screen {
       position: fixed; inset: 0; z-index: 99999;
       background: #fefbfb;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
+      display: block;         /* ← เปลี่ยนจาก flex */
       transition: opacity 0.8s ease;
     }
     #intro-screen.fade-out { opacity: 0; pointer-events: none; }
     #intro-screen.hidden { display: none; }
 
     #intro-video {
-      width: 90%; max-width: 1000px;
-      height: auto; max-height: 85vh;
-      object-fit: contain; border-radius: 8px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(1.3); /* ← ปรับ scale ตามต้องการ */
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
       background-color: #fefbfb;
     }
 
@@ -715,7 +734,7 @@
     <source src="https://res.cloudinary.com/dr5estypt/video/upload/v1772634461/TRAMS_logo_lf6emj.mp4" type="video/mp4">
     <div style="text-align:center;">
       <div style="font-family:'Rajdhani',sans-serif;font-size:3rem;font-weight:700;color:#00b4ff;letter-spacing:6px;">TRAMS</div>
-      <div style="font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:#4a6080;letter-spacing:3px;margin-top:8px;">SMART ELO STATION</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:#4a7380;letter-spacing:3px;margin-top:8px;">SMART ELO STATION</div>
     </div>
   </video>
   <button class="intro-skip-btn" onclick="skipIntro()">
@@ -802,12 +821,12 @@
     <!-- METRICS -->
     <div class="metrics-row mobile-section visible" id="sec-metrics">
       <div class="metric-card level">
-        <div class="m-label" id="lbl-water-level">Water Level</div>
+        <div class="m-label" style="font-size:0.8rem;" id="lbl-water-level">Water Level</div>
         <div class="m-value" id="water-level">--</div>
         <div class="m-unit" id="lbl-centimeters">CENTIMETERS</div>
         <div class="m-bar"><div class="m-fill" id="water-bar"></div></div>
       </div>
-      <div class="metric-card status" style="padding-top: 40px;">
+      <div class="metric-card status" style="padding-top: 20px;">
         <div class="m-label" style="font-size:0.8rem;" id="lbl-station-status">Station Status</div>
         <div class="m-value" style="font-size:1.6rem; margin-top:4px;" id="station-icon">🟢</div>
         <div class="m-unit" id="station-label">NORMAL</div>
