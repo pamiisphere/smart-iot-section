@@ -6,6 +6,7 @@
   <title>Smart ELO | Water Monitor</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;800&family=Sarabun:wght@400;500;600&family=Noto+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <style>
@@ -24,6 +25,53 @@
       --glow:      rgba(0,180,255,0.35);
       --shadow:    rgba(0,0,0,0.4);
     }
+
+    /* ══ Global Thai font fix ══ */
+      * { -webkit-font-smoothing: antialiased; }
+
+      .kanit,
+      [class*="lbl-"],
+      .topbar-sub,
+      .status-text,
+      .m-label,
+      .m-unit,
+      .interval-label,
+      .log-title,
+      .log-count-badge,
+      .log-footer-info,
+      .log-table th,
+      .log-table td,
+      .td-status-pill,
+      .map-title,
+      .chart-title,
+      .cam-label,
+      .cam-name {
+        font-family: 'Kanit', sans-serif;
+        letter-spacing: 0 !important;
+      }
+
+      /* ══ Force Thai letter-spacing fix ══ */
+        .map-title,
+        .chart-title, 
+        .log-title,
+        .cam-label,
+        .cam-name,
+        .m-label,
+        .m-unit,
+        .status-text,
+        .topbar-sub,
+        .interval-label,
+        .log-count-badge,
+        .log-footer-info,
+        .log-table th,
+        .log-table td,
+        .td-status-pill,
+        .chart-stat-lbl,
+        .scrubber-info,
+        .status-since {
+          letter-spacing: 0 !important;
+          font-family: 'Kanit', sans-serif !important;
+        }
 
     /* ── LIGHT MODE ── */
     body.light {
@@ -333,9 +381,9 @@
     .log-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.9rem; letter-spacing:2px; color:var(--text); white-space:nowrap; }
 
     .log-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-    .interval-label { font-family:'Noto Sans Thai','Share Tech Mono',monospace; font-size:0.72rem; color:var(--dim); letter-spacing:0; white-space:nowrap; }
+    .interval-label { font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */ font-size:0.72rem; color:var(--dim); letter-spacing:0; white-space:nowrap; }
     .interval-select {
-      font-family:'Noto Sans Thai','Share Tech Mono',monospace; font-size:0.72rem;
+      font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */; font-size:0.72rem;
       background: rgba(0,180,255,0.06); color:var(--accent);
       border: 1px solid rgba(0,180,255,0.3); border-radius:4px;
       padding: 3px 8px; cursor:pointer; outline:none;
@@ -346,7 +394,7 @@
     }
     .interval-select option { background: #0d1520; color: #d0e8ff; }
     .log-count-badge {
-      font-family:'Noto Sans Thai','Share Tech Mono',monospace; font-size:0.7rem;
+      font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */ font-size:0.7rem;
       background: rgba(0,180,255,0.08); color:var(--accent);
       border:1px solid rgba(0,180,255,0.2); border-radius:10px; padding:2px 10px;
       white-space:nowrap;
@@ -383,9 +431,9 @@
     }
     .log-table th {
       padding: 8px 12px; text-align:left;
-      font-family:'Noto Sans Thai','Share Tech Mono',monospace;
+      font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */
       font-size:0.72rem; color:var(--dim);
-      font-weight:600; letter-spacing:0.5px;
+      font-weight:600; letter-spacing:0px;
     }
     .log-table th:last-child, .log-table td:last-child { text-align:center; }
     .log-table tbody tr {
@@ -398,7 +446,7 @@
     .log-table tbody tr.row-new { background: rgba(0,180,255,0.08); }
     .log-table td {
       padding: 8px 12px;
-      font-family:'Noto Sans Thai','Share Tech Mono',monospace;
+      font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */
       font-size:0.78rem; color:var(--text);
     }
     .log-table td.td-time { color:var(--dim); font-size:0.72rem; font-family:'Share Tech Mono',monospace; }
@@ -408,7 +456,7 @@
     .log-table td.td-level.danger { color:var(--danger); }
     .td-status-pill {
       display:inline-flex; align-items:center; gap:4px;
-      font-family:'Noto Sans Thai','Share Tech Mono',monospace;
+      font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */
       font-size:0.72rem; padding:3px 9px; border-radius:10px;
       letter-spacing:0;
     }
@@ -425,7 +473,7 @@
       flex-shrink:0; gap:6px;
     }
     .log-footer-info {
-      font-family:'Noto Sans Thai','Share Tech Mono',monospace;
+      font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */
       font-size:0.7rem; color:var(--dim); letter-spacing:0;
     }
     .log-action-btn {
@@ -512,7 +560,11 @@
     /* ── Tablet portrait (≤768px) ── */
     @media (max-width: 768px) {
       .topbar { padding: 8px 16px; }
-      .topbar-sub { display: none; }
+      .topbar-sub { font-family: 'Kanit', sans-serif;
+        font-weight: 300;
+        font-size: 0.65rem;
+        color: var(--dim);
+        letter-spacing: 0px; }
       .topbar-title { font-size: 1rem; letter-spacing: 2px; }
       .sys-status span:not(.dot-live) { display: none; }
       /* Hide settings label text on mobile, show just icon */
