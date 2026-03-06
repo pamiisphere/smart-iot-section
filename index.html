@@ -640,7 +640,7 @@
       }
 
       /* ── Metrics: full-width cards, bigger ── */
-      .right-col { gap: 8px; }
+      .right-col { gap: 8px; align-items: stretch; }
       .metrics-row { gap: 8px; width: 100%; }
       /* Ensure metric cards have no flex shrink issues */
       .metric-card {
@@ -663,10 +663,12 @@
         border-radius: 10px;
         border: 1px solid var(--border);
         padding: 16px 18px;
+        width: 100%;
+        align-self: stretch;
       }
       .status-indicator { width: 10px; height: 10px; flex-shrink: 0; }
-      .status-text { font-size: 1.05rem; font-weight: 700; }
-      .status-since { font-size: 0.7rem; }
+      .status-text { font-size: 1.05rem; font-weight: 700; flex: 1; }
+      .status-since { font-size: 0.7rem; white-space: nowrap; }
 
       /* ── Map ── */
       .map-panel { border-radius: 10px; border: 1px solid var(--border); }
