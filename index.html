@@ -213,7 +213,7 @@
       display: flex; flex-direction: column;
       overflow: hidden;
       margin-right: 1px;
-      min-height: 0;  /* ← สำคัญมาก */
+      min-height: 0;
     }
     .cctv-header {
       display:flex; align-items:center; justify-content:space-between;
@@ -298,7 +298,7 @@
       display: flex;
       flex-direction: column;
       gap: 1px;
-      min-height: 0;        /* ← สำคัญมาก */
+      min-height: 0;
       overflow: hidden;
     }
 
@@ -307,11 +307,11 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 1px;
-      flex-shrink: 0;  /* ← ไม่ให้ยุบ */
+      flex-shrink: 0;
     }
     .metric-card {
       background: var(--panel);
-      padding: 12px 16px;   /* ← ลด padding จาก 20px */
+      padding: 12px 16px;
       display: flex; flex-direction: column; align-items: center;
       border: 1px solid var(--border);
       position: relative; overflow: hidden;
@@ -323,7 +323,7 @@
     }
     .metric-card .m-value {
       font-family: 'Rajdhani', sans-serif; font-weight: 700;
-      font-size: 2.8rem;    /* ← ลดจาก 3.4rem */
+      font-size: 2.8rem;
       line-height: 1; color: #fff;
     }
     .metric-card .m-unit {
@@ -343,7 +343,7 @@
 
     .status-card {
       background: var(--panel); border: 1px solid var(--border);
-      grid-column: 1/-1; padding: 8px 16px;  /* ← ลด padding */
+      grid-column: 1/-1; padding: 8px 16px;
       display: flex; align-items: center; gap: 10px;
       flex-shrink: 0;
     }
@@ -381,9 +381,9 @@
     .log-title { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.9rem; letter-spacing:2px; color:var(--text); white-space:nowrap; }
 
     .log-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-    .interval-label { font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */ font-size:0.72rem; color:var(--dim); letter-spacing:0; white-space:nowrap; }
+    .interval-label { font-family: 'Kanit', sans-serif; font-size:0.72rem; color:var(--dim); letter-spacing:0; white-space:nowrap; }
     .interval-select {
-      font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */; font-size:0.72rem;
+      font-family: 'Kanit', sans-serif; font-size:0.72rem;
       background: rgba(0,180,255,0.06); color:var(--accent);
       border: 1px solid rgba(0,180,255,0.3); border-radius:4px;
       padding: 3px 8px; cursor:pointer; outline:none;
@@ -394,7 +394,7 @@
     }
     .interval-select option { background: #0d1520; color: #d0e8ff; }
     .log-count-badge {
-      font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */ font-size:0.7rem;
+      font-family: 'Kanit', sans-serif; font-size:0.7rem;
       background: rgba(0,180,255,0.08); color:var(--accent);
       border:1px solid rgba(0,180,255,0.2); border-radius:10px; padding:2px 10px;
       white-space:nowrap;
@@ -414,7 +414,7 @@
     .log-table-wrap {
       overflow-y: auto;
       overflow-x: hidden;
-      flex: 1;              /* ← กินพื้นที่ที่เหลือใน log panel */
+      flex: 1;
       min-height: 0;
     }
     .log-table-wrap::-webkit-scrollbar { width: 3px; }
@@ -431,7 +431,7 @@
     }
     .log-table th {
       padding: 8px 12px; text-align:left;
-      font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */
+      font-family: 'Kanit', sans-serif;
       font-size:0.72rem; color:var(--dim);
       font-weight:600; letter-spacing:0px;
     }
@@ -446,7 +446,7 @@
     .log-table tbody tr.row-new { background: rgba(0,180,255,0.08); }
     .log-table td {
       padding: 8px 12px;
-      font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */
+      font-family: 'Kanit', sans-serif;
       font-size:0.78rem; color:var(--text);
     }
     .log-table td.td-time { color:var(--dim); font-size:0.72rem; font-family:'Share Tech Mono',monospace; }
@@ -456,7 +456,7 @@
     .log-table td.td-level.danger { color:var(--danger); }
     .td-status-pill {
       display:inline-flex; align-items:center; gap:4px;
-      font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */
+      font-family: 'Kanit', sans-serif;
       font-size:0.72rem; padding:3px 9px; border-radius:10px;
       letter-spacing:0;
     }
@@ -473,7 +473,7 @@
       flex-shrink:0; gap:6px;
     }
     .log-footer-info {
-      font-family: 'Kanit', sans-serif;  /* ← เปลี่ยน */
+      font-family: 'Kanit', sans-serif;
       font-size:0.7rem; color:var(--dim); letter-spacing:0;
     }
     .log-action-btn {
@@ -491,7 +491,7 @@
     /* ─── Map panel ─── */
     .map-panel {
       background: var(--panel); border: 1px solid var(--border);
-      padding: 8px 14px;    /* ← ลด padding */
+      padding: 8px 14px;
       display: flex; flex-direction: column; gap: 4px;
       flex-shrink: 0;
     }
@@ -503,7 +503,7 @@
       font-family:'Share Tech Mono',monospace; font-size:0.58rem; color:var(--accent2); letter-spacing:1px;
     }
     #map-container {
-      height: 150px;        /* ← ลดจาก 200px */
+      height: 150px;
       border-radius: 6px; overflow: hidden;
       border: 1px solid var(--border);
       filter: saturate(0.5) brightness(0.75) hue-rotate(180deg);
@@ -514,7 +514,7 @@
     .leaflet-control-attribution a { color: #4a6080 !important; }
     .chart-panel {
       background: var(--panel); border: 1px solid var(--border);
-      padding: 8px 14px;    /* ← ลด padding */
+      padding: 8px 14px;
       display: flex; flex-direction: column; gap: 4px;
       flex-shrink: 0;
     }
@@ -530,7 +530,7 @@
     }
     .range-btn:hover, .range-btn.active { background:rgba(0,180,255,0.15); color:var(--accent); border-color:rgba(0,180,255,0.4); }
     .chart-canvas-wrap {
-      position: relative; height: 80px;  /* ← ลดจาก 110px */
+      position: relative; height: 80px;
     }
     #history-canvas {
       width:100%; height:100%; display:block;
@@ -557,74 +557,147 @@
       #map-container { height: 160px; }
     }
 
-    /* ── Tablet portrait (≤768px) ── */
+    /* ── Tablet portrait / Mobile (≤768px) ── */
     @media (max-width: 768px) {
-      .topbar { padding: 8px 16px; }
-      .topbar-sub { font-family: 'Kanit', sans-serif;
+      /* ── Topbar: compact single row ── */
+      .topbar {
+        padding: 8px 12px;
+        flex-wrap: nowrap;
+        min-height: 52px;
+      }
+      .topbar-left { gap: 8px; flex-shrink: 1; min-width: 0; }
+      .topbar-left > div { min-width: 0; }
+      .topbar-title { font-size: 0.95rem; letter-spacing: 1px; white-space: nowrap; }
+      .topbar-sub {
+        font-family: 'Kanit', sans-serif;
         font-weight: 300;
-        font-size: 0.65rem;
+        font-size: 0.58rem;
         color: var(--dim);
-        letter-spacing: 0px; }
-      .topbar-title { font-size: 1rem; letter-spacing: 2px; }
+        letter-spacing: 0px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 160px;
+      }
+      .logo-ring { width: 30px; height: 30px; flex-shrink: 0; }
+      .logo-ring span { width: 8px; height: 8px; }
+
+      /* topbar-right: hide non-essential, keep compact */
+      .topbar-right { gap: 8px; flex-shrink: 0; }
       .sys-status span:not(.dot-live) { display: none; }
-      /* Hide settings label text on mobile, show just icon */
+      .topbar-time { font-size: 0.75rem; }
       .settings-btn span { display: none; }
       .settings-btn { padding: 5px 8px; }
 
+      /* ── Main layout: single column, scrollable ── */
       .main {
         grid-template-columns: 1fr;
         grid-template-rows: auto;
         height: auto;
-        padding: 10px;
+        padding: 8px;
         gap: 8px;
-        padding-bottom: 72px;
+        padding-bottom: 68px;
+        overflow-y: auto;
+        overflow-x: hidden;
       }
 
+      /* ── CCTV Panel: 16:9 ratio ── */
       .cctv-panel {
         grid-row: auto;
-        border-radius: 12px;
+        border-radius: 10px;
         margin: 0;
-        height: 52vw;
-        min-height: 260px;
-        max-height: 380px;
+        height: auto;
+        min-height: 0;
+        max-height: none;
       }
-      .cctv-wrap { flex: 1; }
+      .cctv-wrap {
+        flex: none;
+        height: 0;
+        padding-bottom: 56.25%; /* 16:9 */
+        position: relative;
+      }
+      .cctv-wrap img#cctv-frame {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        object-fit: cover;
+      }
+      .cctv-wrap .scanline,
+      .cctv-wrap .corner,
+      .cctv-wrap .hud-overlay,
+      .cctv-expand-btn {
+        position: absolute;
+      }
 
+      /* ── Metrics: full-width cards, bigger ── */
       .right-col { grid-column: 1; gap: 8px; }
       .metrics-row { gap: 8px; }
-      .metric-card { padding: 16px 12px; border-radius: 10px !important; border: 1px solid var(--border); }
-      .metric-card .m-value { font-size: 2.8rem; }
-      .status-card { border-radius: 10px; border: 1px solid var(--border); }
+      .metric-card {
+        padding: 18px 12px;
+        border-radius: 10px !important;
+        border: 1px solid var(--border);
+      }
+      .metric-card .m-value { font-size: 3.2rem; }
+      .metric-card .m-label { font-size: 0.72rem; margin-bottom: 6px; }
+      .metric-card .m-unit  { font-size: 0.68rem; }
+      .metric-card .m-bar   { margin-top: 10px; height: 5px; }
+
+      /* ── Status card ── */
+      .status-card {
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        padding: 12px 14px;
+      }
+      .status-text { font-size: 0.95rem; }
+
+      /* ── Map ── */
       .map-panel { border-radius: 10px; border: 1px solid var(--border); }
       #map-container { height: 180px; }
+
+      /* ── Chart ── */
       .chart-panel { border-radius: 10px; border: 1px solid var(--border); }
-      .chart-canvas-wrap { height: 130px; }
-      .log-panel { background: var(--panel); border: 1px solid var(--border);
-          border-radius: 0 0 12px 0;
-          flex: 1;              /* ← กินพื้นที่ที่เหลือ */
-          display: flex; flex-direction: column; overflow: hidden;
-          min-height: 0;        /* ← สำคัญมาก */ }
+      .chart-canvas-wrap { height: 120px; }
+
+      /* ── Log panel: fixed 3-4 rows visible, then scroll ── */
+      .log-panel {
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        max-height: 280px;
+        min-height: 0;
+        flex: none;
+      }
+      .log-table-wrap {
+        max-height: 160px;
+        overflow-y: auto;
+      }
+      .log-table td { padding: 9px 10px; font-size: 0.8rem; }
+      .log-table th { padding: 8px 10px; font-size: 0.72rem; }
     }
 
     /* ── Mobile portrait (≤480px) ── */
     @media (max-width: 480px) {
-      .topbar { padding: 8px 12px; }
-      .topbar-title { font-size: 0.9rem; letter-spacing: 1px; }
-      .topbar-time { font-size: 0.72rem; }
-      .main { padding: 8px; gap: 6px; padding-bottom: 76px; }
-      .cctv-panel { height: 56vw; min-height: 220px; max-height: 320px; }
-      .cctv-header { padding: 8px 12px; }
-      .cam-name { font-size: 0.85rem; }
-      .metric-card { padding: 14px 10px; }
-      .metric-card .m-value { font-size: 2.4rem; }
-      .metric-card .m-label { font-size: 0.55rem; }
-      .metric-card .m-unit  { font-size: 0.6rem; }
-      .status-card { padding: 10px 12px; }
-      .status-text { font-size: 0.8rem; }
+      .topbar { padding: 7px 10px; min-height: 48px; }
+      .topbar-title { font-size: 0.88rem; letter-spacing: 0.5px; }
+      .topbar-time { font-size: 0.7rem; }
+      .topbar-sub { max-width: 120px; font-size: 0.55rem; }
+      .logo-ring { width: 28px; height: 28px; }
+      .logo-ring span { width: 7px; height: 7px; }
+
+      .main { padding: 6px; gap: 6px; padding-bottom: 72px; }
+
+      .metric-card { padding: 16px 10px; }
+      .metric-card .m-value { font-size: 3rem; }
+      .metric-card .m-label { font-size: 0.65rem; }
+      .metric-card .m-unit  { font-size: 0.62rem; }
+
+      .status-text { font-size: 0.85rem; }
       #map-container { height: 160px; }
-      .chart-canvas-wrap { height: 110px; }
+      .chart-canvas-wrap { height: 100px; }
       .chart-title { font-size: 0.78rem; }
       .range-btn { padding: 2px 6px; font-size: 0.55rem; }
+
+      .log-panel { max-height: 260px; }
+      .log-table-wrap { max-height: 140px; }
     }
 
     /* ── Bottom Nav (mobile only) ── */
@@ -741,7 +814,7 @@
     #intro-screen {
       position: fixed; inset: 0; z-index: 99999;
       background: #fefbfb;
-      display: block;         /* ← เปลี่ยนจาก flex */
+      display: block;
       transition: opacity 0.8s ease;
     }
     #intro-screen.fade-out { opacity: 0; pointer-events: none; }
@@ -751,21 +824,17 @@
       position: absolute;
       top: 50%;
       left: 50%;
-      /* ปรับให้ขยายเต็มพื้นที่และจัดกึ่งกลางเสมอ */
       transform: translate(-50%, -50%); 
       width: 100%;
       height: 100%;
-      /* เปลี่ยนจาก contain เป็น cover เพื่อให้ภาพเต็มจอ (อาจมีขอบโดนตัดเล็กน้อยแต่จะไม่มีขอบขาว) */
       object-fit: cover; 
       background-color: #fefbfb;
     }
 
-    /* เพิ่มส่วนนี้เพื่อคุมหน้าจอมือถือโดยเฉพาะ */
     @media (max-width: 768px) {
       #intro-video {
         width: 100vw;
         height: 100vh;
-        /* ในมือถือใช้ cover จะช่วยให้โลโก้ดูเต็มตาที่สุดครับ */
         object-fit: cover; 
       }
     }
@@ -1170,7 +1239,7 @@
     set('lbl-clear', t.clear);
     set('lbl-bnav-data', t.bnavData); set('lbl-bnav-map', t.bnavMap);
     set('lbl-bnav-graph', t.bnavGraph); set('lbl-bnav-log', t.bnavLog);
-    set('lbl-settings', t.settings);  // ★ settings button label
+    set('lbl-settings', t.settings);
     set('log-count', historyData.length + ' ' + t.records);
     var emptyMsg = document.getElementById('log-empty-msg');
     if (emptyMsg) emptyMsg.textContent = t.waiting;
