@@ -583,10 +583,10 @@
       .logo-ring span { width: 8px; height: 8px; }
 
       /* topbar-right: hide non-essential, keep compact */
-      .topbar-right { gap: 6px; flex-shrink: 0; }
+      .topbar-right { gap: 6px; flex-shrink: 0; margin-left: auto; }
       /* Hide entire sys-status (dot + text) — saves space, avoids overlap */
       .sys-status { display: none; }
-      .topbar-time { font-size: 0.73rem; }
+      .topbar-time { font-size: 0.65rem; color: var(--dim); letter-spacing: 0.5px; }
       .settings-btn span { display: none; }
       .settings-btn { padding: 5px 7px; }
       /* Hide theme label text, keep toggle only */
@@ -603,6 +603,12 @@
         padding-bottom: 68px;
         overflow-y: auto;
         overflow-x: hidden;
+      }
+
+      /* Force both columns to full width */
+      .cctv-panel, .right-col {
+        grid-column: 1 / -1;
+        width: 100%;
       }
 
       /* ── CCTV Panel: 16:9 ratio ── */
@@ -634,9 +640,12 @@
       }
 
       /* ── Metrics: full-width cards, bigger ── */
-      .right-col { grid-column: 1; gap: 8px; }
-      .metrics-row { gap: 8px; }
+      .right-col { gap: 8px; }
+      .metrics-row { gap: 8px; width: 100%; }
+      /* Ensure metric cards have no flex shrink issues */
       .metric-card {
+        min-width: 0;
+        flex: 1;
         padding: 28px 16px 22px;
         border-radius: 10px !important;
         border: 1px solid var(--border);
@@ -783,14 +792,16 @@
     }
     .modal-close:hover { background: rgba(255,59,59,0.15); color: var(--danger); border-color: var(--danger); }
     .modal-body {
-      flex: 1; overflow: auto; padding: 16px;
-      display: flex; flex-direction: column; gap: 12px;
+      flex: 1; overflow: auto; padding: 12px;
+      display: flex; flex-direction: column; gap: 8px;
     }
     .modal-cctv-wrap {
       position: relative; flex: 1; background: #000;
-      border-radius: 8px; overflow: hidden; min-height: 300px;
+      border-radius: 8px; overflow: hidden;
+      aspect-ratio: 16/9;
+      width: 100%;
     }
-    .modal-cctv-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .modal-cctv-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .modal-cctv-wrap .scanline { opacity: 0.4; }
     #modal-map-container { height: 460px; border-radius: 8px; overflow: hidden; }
     .modal-chart-wrap { height: 340px; position: relative; }
@@ -1528,7 +1539,7 @@
     if(type==='cctv'){
       title.textContent=t.cameraFeed+' — '+t.camName;
       body.style.padding='0';
-      body.innerHTML='<div class="modal-cctv-wrap" style="flex:1;min-height:50vh;"><img id="modal-cctv-img" style="width:100%;height:100%;object-fit:contain;background:#000;" src="'+document.getElementById('cctv-frame').src+'"><div class="scanline"></div><div class="corner c-tl"></div><div class="corner c-tr"></div><div class="corner c-bl"></div><div class="corner c-br"></div><div class="hud-overlay"><div class="hud-tag" id="modal-hud-time">'+document.getElementById('hud-time').textContent+'</div><div class="rec-badge"><span class="rec-dot"></span>REC</div></div></div>';
+      body.innerHTML='<div class="modal-cctv-wrap" style="flex:1;"><img id="modal-cctv-img" style="width:100%;height:100%;object-fit:cover;background:#000;" src="'+document.getElementById('cctv-frame').src+'"><div class="scanline"></div><div class="corner c-tl"></div><div class="corner c-tr"></div><div class="corner c-bl"></div><div class="corner c-br"></div><div class="hud-overlay"><div class="hud-tag" id="modal-hud-time">'+document.getElementById('hud-time').textContent+'</div><div class="rec-badge"><span class="rec-dot"></span>REC</div></div></div>';
       window._modalCctvActive=true;
     } else if(type==='map'){
       title.textContent=t.stationLoc;
