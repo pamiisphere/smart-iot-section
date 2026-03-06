@@ -583,11 +583,15 @@
       .logo-ring span { width: 8px; height: 8px; }
 
       /* topbar-right: hide non-essential, keep compact */
-      .topbar-right { gap: 8px; flex-shrink: 0; }
-      .sys-status span:not(.dot-live) { display: none; }
-      .topbar-time { font-size: 0.75rem; }
+      .topbar-right { gap: 6px; flex-shrink: 0; }
+      /* Hide entire sys-status (dot + text) — saves space, avoids overlap */
+      .sys-status { display: none; }
+      .topbar-time { font-size: 0.73rem; }
       .settings-btn span { display: none; }
-      .settings-btn { padding: 5px 8px; }
+      .settings-btn { padding: 5px 7px; }
+      /* Hide theme label text, keep toggle only */
+      #theme-label { display: none; }
+      .theme-toggle { padding: 4px 8px 4px 6px; }
 
       /* ── Main layout: single column, scrollable ── */
       .main {
@@ -633,22 +637,27 @@
       .right-col { grid-column: 1; gap: 8px; }
       .metrics-row { gap: 8px; }
       .metric-card {
-        padding: 18px 12px;
+        padding: 28px 16px 22px;
         border-radius: 10px !important;
         border: 1px solid var(--border);
       }
-      .metric-card .m-value { font-size: 3.2rem; }
-      .metric-card .m-label { font-size: 0.72rem; margin-bottom: 6px; }
-      .metric-card .m-unit  { font-size: 0.68rem; }
-      .metric-card .m-bar   { margin-top: 10px; height: 5px; }
+      .metric-card .m-value { font-size: 4rem; }
+      .metric-card .m-label { font-size: 0.78rem; margin-bottom: 10px; }
+      .metric-card .m-unit  { font-size: 0.72rem; margin-top: 10px; }
+      .metric-card .m-bar   { margin-top: 14px; height: 5px; }
+      /* Station status icon */
+      #station-icon { font-size: 2.2rem !important; margin-top: 6px !important; }
+      #station-label { font-size: 1rem !important; margin-top: 8px !important; }
 
       /* ── Status card ── */
       .status-card {
         border-radius: 10px;
         border: 1px solid var(--border);
-        padding: 12px 14px;
+        padding: 16px 18px;
       }
-      .status-text { font-size: 0.95rem; }
+      .status-indicator { width: 10px; height: 10px; flex-shrink: 0; }
+      .status-text { font-size: 1.05rem; font-weight: 700; }
+      .status-since { font-size: 0.7rem; }
 
       /* ── Map ── */
       .map-panel { border-radius: 10px; border: 1px solid var(--border); }
@@ -685,12 +694,12 @@
 
       .main { padding: 6px; gap: 6px; padding-bottom: 72px; }
 
-      .metric-card { padding: 16px 10px; }
-      .metric-card .m-value { font-size: 3rem; }
-      .metric-card .m-label { font-size: 0.65rem; }
-      .metric-card .m-unit  { font-size: 0.62rem; }
+      .metric-card { padding: 24px 12px 18px; }
+      .metric-card .m-value { font-size: 3.6rem; }
+      .metric-card .m-label { font-size: 0.7rem; }
+      .metric-card .m-unit  { font-size: 0.65rem; }
 
-      .status-text { font-size: 0.85rem; }
+      .status-text { font-size: 0.95rem; }
       #map-container { height: 160px; }
       .chart-canvas-wrap { height: 100px; }
       .chart-title { font-size: 0.78rem; }
