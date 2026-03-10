@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Smart ELO | AI Vision Water Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+
+/* ═══════════════════════════════════════════
+   THEME VARIABLES
+═══════════════════════════════════════════ */
+:root {
+  --bg:            #07090f;
+  --panel:         #0c111c;
+  --panel2:        #101828;
+  --border:        rgba(56,189,248,0.12);
+  --accent:        #38bdf8;
+  --accent2:       #34d399;
+  --danger:        #f87171;
+  --warn:          #fbbf24;
+  --ok:            #34d399;
+  --text:          #e2eaf5;
+  --dim:           #4a647a;
+  --glow:          rgba(56,189,248,0.3);
+  --ai-purple:     #a78bfa;
+  --ai-purple-dim: rgba(167,139,250,0.15);
+  --grid-line:     rgba(56,189,248,0.025);
+  --overlay:       rgba(0,0,0,0.2);
+  --overlay2:      rgba(0,0,0,0.15);
+  --hud-grad:      rgba(0,0,0,0.85);
+  --bar-track:     rgba(255,255,255,0.06);
+}
+
+body.light {
+  --bg:            #f0f4f8;
+  --panel:         #ffffff;
+  --panel2:        #e8f0f8;
+  --border:        rgba(56,189,248,0.25);
+  --text:          #1a2a44;
+  --dim:           #6b7fa3;
+  --glow:          rgba(56,189,248,0.2);
+  --ai-purple-dim: rgba(167,139,250,0.12);
+  --grid-line:     rgba(56,189,248,0.06);
+  --overlay:       rgba(0,0,0,0.05);
+  --overlay2:      rgba(0,0,0,0.04);
+  --hud-grad:      rgba(0,0,0,0.65);
+  --bar-track:     rgba(0,0,0,0.08);
+}
+
+/* ═══════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Kanit', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background 0.3s, color 0.3s;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none; z-index: 0;
+}
+
+/* ═══════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════ */
+@keyframes blink    { 50% { opacity: 0; } }
+@keyframes ai-pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.6; transform:scale(1.3); } }
+
+/* ═══════════════════════════════════════════
+   TOPBAR
+═══════════════════════════════════════════ */
+.topbar {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 28px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 2px 30px rgba(0,0,0,0.6);
+}
+.topbar-left  { display: flex; align-items: center; gap: 16px; }
+.logo-wrap    { display: flex; align-items: center; gap: 10px; }
+.topbar-title {
+  font-family: 'Rajdhani', sans-serif; font-weight: 700;
+  font-size: 1.25rem; letter-spacing: 3px; color: var(--accent);
+  text-transform: uppercase;
+}
+.topbar-sub   { font-size: 0.65rem; color: var(--dim); letter-spacing: 1px; }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+
+.ai-badge {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px;
+  border: 1px solid rgba(167,139,250,0.4);
+  background: var(--ai-purple-dim);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 1.5px; color: var(--ai-purple);
+}
+.ai-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ai-purple); box-shadow: 0 0 8px var(--ai-purple);
+  animation: ai-pulse 2s ease-in-out infinite;
+}
+.live-indicator {
+  display: flex; align-items: center; gap: 7px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem; color: var(--ok); letter-spacing: 1px;
+}
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ok); box-shadow: 0 0 8px var(--ok);
+  animation: blink 1.2s step-start infinite;
+}
+.clock {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.85rem; color: var(--accent); letter-spacing: 1px;
+}
+
+/* Settings link button */
+.settings-btn {
+  display: flex; align-items: center; gap: 5px;
+  font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; letter-spacing: 1px;
+  padding: 5px 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03); color: var(--dim);
+  text-decoration: none; transition: all 0.15s;
+}
+.settings-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(56,189,248,0.08); }
+
+/* Theme toggle button */
+.theme-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--panel2);
+  color: var(--text); font-size: 1rem; transition: all 0.2s;
+}
+.theme-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ═══════════════════════════════════════════
+   LAYOUT
+═══════════════════════════════════════════ */
+.main {
+  position: relative; z-index: 1;
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  grid-template-rows: auto 1fr;
+  gap: 12px;
+  min-height: calc(100vh - 62px);
+}
+
+/* ═══════════════════════════════════════════
+   AI BANNER
+═══════════════════════════════════════════ */
+.ai-banner {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(167,139,250,0.08) 0%, rgba(56,189,248,0.06) 100%);
+  border: 1px solid rgba(167,139,250,0.25);
+  border-radius: 10px;
+  padding: 10px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.ai-banner-left  { display: flex; align-items: center; gap: 12px; }
+.ai-icon         { font-size: 1.4rem; }
+.ai-banner-title {
+  font-family: 'Rajdhani', sans-serif; font-weight: 700;
+  font-size: 0.95rem; letter-spacing: 2px; color: var(--ai-purple);
+}
+.ai-banner-sub   { font-size: 0.72rem; color: var(--dim); }
+.ai-banner-right { display: flex; align-items: center; gap: 20px; }
+.ai-stat         { text-align: center; }
+.ai-stat-val     {
+  font-family: 'Rajdhani', sans-serif; font-weight: 700;
+  font-size: 1.1rem; color: var(--ai-purple);
+}
+.ai-stat-lbl     { font-size: 0.62rem; color: var(--dim); }
+.confidence-bar  {
+  width: 100px; height: 4px; background: var(--bar-track);
+  border-radius: 2px; overflow: hidden; margin-top: 4px;
+}
+.confidence-fill {
+  height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, var(--ai-purple), var(--accent));
+  transition: width 0.8s ease;
+}
+.detection-method-badge {
+  font-family: 'Share Tech Mono', monospace; font-size: 0.58rem; letter-spacing: 1px;
+  padding: 3px 10px; border-radius: 4px;
+  border: 1px solid rgba(167,139,250,0.3);
+  background: rgba(167,139,250,0.08); color: var(--ai-purple);
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════
+   COLUMNS
+═══════════════════════════════════════════ */
+.left-col  { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.right-col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+
+/* ═══════════════════════════════════════════
+   COLOR SCALE CARD
+═══════════════════════════════════════════ */
+.scale-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px 24px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.scale-header { display: flex; align-items: center; justify-content: space-between; }
+.scale-title  {
+  font-family: 'Rajdhani', sans-serif; font-weight: 700;
+  font-size: 1rem; letter-spacing: 2px; color: var(--text);
+}
+.scale-source {
+  font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; letter-spacing: 1px;
+  color: var(--ai-purple); background: var(--ai-purple-dim);
+  padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(167,139,250,0.25);
+}
+
+/* Gauge */
+.gauge-wrap    { display: flex; align-items: center; justify-content: center; gap: 32px; padding: 10px 0; }
+.gauge-left    { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
+.gauge-svg-wrap { filter: drop-shadow(0 6px 24px rgba(0,0,0,0.5)); }
+.gauge-readout { text-align: center; }
+.gauge-level-val {
+  font-family: 'Rajdhani', sans-serif; font-weight: 700;
+  font-size: 3.5rem; line-height: 1; letter-spacing: -1px;
+  transition: color 0.6s;
+}
+.gauge-level-unit {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem; color: var(--dim);
+  letter-spacing: 3px; display: block; margin-top: 3px;
+}
+.gauge-status-text {
+  font-family: 'Rajdhani', sans-serif; font-weight: 700;
+  font-size: 0.8rem; letter-spacing: 3px;
+  margin-top: 4px; display: block; opacity: 0.9;
+  transition: color 0.6s;
+}
+
+/* Status tiers */
+.color-scale-tiers { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.tier {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: 8px;
+  border: 1px solid transparent; transition: all 0.4s; cursor: default;
+}
+.tier.active-tier { transform: scale(1.03); }
+
+.tier-green  { background: rgba(52,211,153,0.06);  border-color: rgba(52,211,153,0.15); }
+.tier-yellow { background: rgba(251,191,36,0.06);   border-color: rgba(251,191,36,0.15); }
+.tier-red    { background: rgba(248,113,113,0.06);  border-color: rgba(248,113,113,0.15); }
+
+.tier-green.active-tier  { background: rgba(52,211,153,0.18);  border-color: rgba(52,211,153,0.5);  box-shadow: 0 0 20px rgba(52,211,153,0.15); }
+.tier-yellow.active-tier { background: rgba(251,191,36,0.18);   border-color: rgba(251,191,36,0.5);  box-shadow: 0 0 20px rgba(251,191,36,0.15); }
+.tier-red.active-tier    { background: rgba(248,113,113,0.18);  border-color: rgba(248,113,113,0.5); box-shadow: 0 0 20px rgba(248,113,113,0.15); }
+
+.tier-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.tier-green  .tier-dot { background: var(--ok);     box-shadow: 0 0 8px var(--ok); }
+.tier-yellow .tier-dot { background: var(--warn); }
+.tier-red    .tier-dot { background: var(--danger); }
+.tier-green.active-tier  .tier-dot { animation: blink 1.8s ease-in-out infinite; }
+.tier-red.active-tier    .tier-dot { animation: blink 0.6s step-start infinite; }
+
+.tier-info  { flex: 1; }
+.tier-name  { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 0.95rem; letter-spacing: 1px; }
+.tier-range { font-size: 0.68rem; color: var(--dim); }
+.tier-green  .tier-name { color: var(--ok); }
+.tier-yellow .tier-name { color: var(--warn); }
+.tier-red    .tier-name { color: var(--danger); }
+
+.tier-check { font-size: 1.1rem; margin-left: auto; opacity: 0; transition: opacity 0.3s; }
+.tier.active-tier .tier-check { opacity: 1; }
+
+/* ═══════════════════════════════════════════
+   METRICS GRID
+═══════════════════════════════════════════ */
+.metrics-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+}
+.metric-mini {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px;
+  position: relative; overflow: hidden; transition: border-color 0.3s;
+}
+.metric-mini::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; border-radius: 2px 2px 0 0;
+}
+.metric-mini.ok::before     { background: var(--ok); }
+.metric-mini.warn::before   { background: var(--warn); }
+.metric-mini.danger::before { background: var(--danger); }
+.metric-mini.ai::before     { background: linear-gradient(90deg, var(--ai-purple), var(--accent)); }
+
+.mm-label { font-size: 0.62rem; color: var(--dim); margin-bottom: 6px; }
+.mm-val   { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 2rem; line-height: 1; }
+.mm-unit  { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; color: var(--dim); letter-spacing: 1px; margin-top: 4px; }
+.mm-bar   { width: 100%; height: 3px; background: var(--bar-track); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+.mm-fill  { height: 100%; border-radius: 2px; transition: width 0.8s ease; }
+.ok     .mm-fill { background: var(--ok); }
+.warn   .mm-fill { background: var(--warn); }
+.danger .mm-fill { background: var(--danger); }
+
+/* ═══════════════════════════════════════════
+   CCTV PANEL
+═══════════════════════════════════════════ */
+.cctv-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+  display: flex; flex-direction: column; flex-shrink: 0;
+}
+.cctv-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  background: rgba(56,189,248,0.03);
+}
+.cctv-title { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 0.88rem; letter-spacing: 2px; color: var(--text); }
+.rec-badge  {
+  display: flex; align-items: center; gap: 5px;
+  font-family: 'Share Tech Mono', monospace; font-size: 0.6rem;
+  color: var(--danger); letter-spacing: 1px;
+}
+.rec-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--danger);
+  box-shadow: 0 0 6px var(--danger); animation: blink 0.8s step-start infinite;
+}
+.cctv-wrap     { position: relative; background: #000; aspect-ratio: 16/9; }
+.cctv-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(0.7) contrast(1.05); }
+
+.scanline {
+  position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,0,0,0.1) 3px, rgba(0,0,0,0.1) 4px);
+}
+.cctv-corners span { position: absolute; width: 18px; height: 18px; border-color: var(--accent); border-style: solid; opacity: 0.7; }
+.c-tl { top:8px;    left:8px;   border-width: 2px 0 0 2px; }
+.c-tr { top:8px;    right:8px;  border-width: 2px 2px 0 0; }
+.c-bl { bottom:8px; left:8px;   border-width: 0 0 2px 2px; }
+.c-br { bottom:8px; right:8px;  border-width: 0 2px 2px 0; }
+
+.cctv-hud {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(to top, var(--hud-grad), transparent);
+  padding: 10px 12px 8px;
+  display: flex; justify-content: space-between; align-items: flex-end;
+}
+.hud-time { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--accent2); }
+
+.cctv-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 14px; border-top: 1px solid var(--border);
+  background: var(--overlay2);
+}
+.cctv-ts { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; color: var(--dim); }
+
+.ai-scan-badge {
+  display: flex; align-items: center; gap: 5px;
+  font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; letter-spacing: 1px;
+  color: var(--ai-purple);
+}
+.ai-scan-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--ai-purple); box-shadow: 0 0 6px var(--ai-purple);
+  animation: blink 1s step-start infinite;
+}
+
+/* ═══════════════════════════════════════════
+   AI ANALYSIS PANEL
+═══════════════════════════════════════════ */
+.analysis-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 12px; flex: 1;
+}
+.analysis-title {
+  font-family: 'Rajdhani', sans-serif; font-weight: 700;
+  font-size: 0.88rem; letter-spacing: 2px; color: var(--text);
+  display: flex; align-items: center; gap: 8px;
+}
+.analysis-title::before {
+  content: ''; width: 3px; height: 16px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--ai-purple), var(--accent));
+}
+.section-label { font-size: 0.65rem; color: var(--dim); margin-bottom: 6px; }
+
+/* Object tags */
+.vision-objects { display: flex; flex-wrap: wrap; gap: 6px; }
+.obj-tag {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 0.68rem; padding: 3px 9px; border-radius: 12px;
+  border: 1px solid var(--border); background: rgba(56,189,248,0.06); color: var(--text);
+  transition: all 0.2s;
+}
+.obj-tag.water { border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.12); color: var(--accent); }
+.obj-tag-score { font-family: 'Share Tech Mono', monospace; font-size: 0.58rem; color: var(--dim); }
+
+/* Color swatches */
+.color-swatches { display: flex; gap: 6px; align-items: center; }
+.swatch-item    { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.swatch         { width: 28px; height: 28px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
+.swatch-pct     { font-size: 0.58rem; color: var(--dim); font-family: 'Share Tech Mono', monospace; }
+
+/* AI label rows */
+.ai-labels         { display: flex; flex-direction: column; gap: 6px; }
+.ai-label-row      { display: flex; align-items: center; gap: 8px; }
+.ai-label-name     { font-size: 0.72rem; color: var(--text); flex: 1; min-width: 0; }
+.ai-label-bar-wrap { flex: 2; height: 4px; background: var(--bar-track); border-radius: 2px; overflow: hidden; }
+.ai-label-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--ai-purple), var(--accent)); transition: width 0.8s ease; }
+.ai-label-pct      { font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; color: var(--ai-purple); width: 34px; text-align: right; }
+
+/* Water score box */
+.water-score-box    { background: var(--ai-purple-dim); border: 1px solid rgba(167,139,250,0.25); border-radius: 8px; padding: 10px 12px; }
+.water-score-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.water-score-title  { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 0.68rem; letter-spacing: 1px; color: var(--ai-purple); }
+.water-score-num    { font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--ai-purple); }
+.water-score-track  { width: 100%; height: 6px; background: var(--bar-track); border-radius: 3px; overflow: hidden; }
+.water-score-fill   { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #38bdf8, #a78bfa); width: 0%; transition: width 0.8s ease; }
+.water-score-desc   { font-size: 0.6rem; color: var(--dim); margin-top: 5px; }
+
+/* ═══════════════════════════════════════════
+   EVENT LOG
+═══════════════════════════════════════════ */
+.log-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+  display: flex; flex-direction: column; max-height: 220px;
+}
+.log-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02); flex-shrink: 0;
+}
+.log-title       { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 0.85rem; letter-spacing: 2px; color: var(--text); }
+.log-count-badge { font-size: 0.65rem; padding: 2px 8px; border-radius: 8px; border: 1px solid rgba(56,189,248,0.2); color: var(--accent); background: rgba(56,189,248,0.07); }
+
+.log-table-wrap                        { overflow-y: auto; flex: 1; }
+.log-table-wrap::-webkit-scrollbar      { width: 2px; }
+.log-table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.log-table          { width: 100%; border-collapse: collapse; }
+.log-table thead tr { position: sticky; top: 0; background: var(--panel); z-index: 2; border-bottom: 1px solid var(--border); }
+.log-table th       { padding: 7px 12px; text-align: left; font-size: 0.65rem; color: var(--dim); font-weight: 500; }
+.log-table td       { padding: 7px 12px; font-size: 0.72rem; color: var(--text); border-bottom: 1px solid rgba(255,255,255,0.03); }
+.td-time            { font-family: 'Share Tech Mono', monospace; color: var(--dim); font-size: 0.65rem; }
+.td-val             { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 0.95rem; }
+.td-val.ok          { color: var(--ok); }
+.td-val.warn        { color: var(--warn); }
+.td-val.danger      { color: var(--danger); }
+
+.status-pill        { display: inline-flex; align-items: center; gap: 4px; font-size: 0.65rem; padding: 2px 8px; border-radius: 8px; }
+.status-pill.ok     { background: rgba(52,211,153,0.12);  color: var(--ok);     border: 1px solid rgba(52,211,153,0.25); }
+.status-pill.warn   { background: rgba(251,191,36,0.12);  color: var(--warn);   border: 1px solid rgba(251,191,36,0.25); }
+.status-pill.danger { background: rgba(248,113,113,0.12); color: var(--danger); border: 1px solid rgba(248,113,113,0.25); }
+.status-pill.ai     { background: var(--ai-purple-dim);   color: var(--ai-purple); border: 1px solid rgba(167,139,250,0.3); }
+.pill-dot           { width: 4px; height: 4px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+.log-footer      { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; border-top: 1px solid var(--border); background: var(--overlay); flex-shrink: 0; }
+.log-footer-info { font-size: 0.65rem; color: var(--dim); }
+.export-btn {
+  display: flex; align-items: center; gap: 5px;
+  font-family: 'Share Tech Mono', monospace; font-size: 0.58rem; letter-spacing: 1px;
+  padding: 4px 10px; border-radius: 4px; cursor: pointer;
+  border: 1px solid rgba(56,189,248,0.25); background: rgba(56,189,248,0.08); color: var(--accent);
+  transition: background 0.15s;
+}
+.export-btn:hover { background: rgba(56,189,248,0.18); }
+
+/* ═══════════════════════════════════════════
+   BOTTOM BAR
+═══════════════════════════════════════════ */
+.last-update-bar {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+}
+.upd-left  { display: flex; align-items: center; gap: 10px; font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--dim); }
+.upd-right { display: flex; align-items: center; gap: 12px; }
+.upd-dot   { width: 5px; height: 5px; border-radius: 50%; }
+.upd-dot.ok       { background: var(--ok);        box-shadow: 0 0 6px var(--ok); }
+.upd-dot.scanning { background: var(--ai-purple); box-shadow: 0 0 6px var(--ai-purple); animation: blink 1s step-start infinite; }
+
+.next-scan     { font-family: 'Share Tech Mono', monospace; font-size: 0.62rem; color: var(--dim); letter-spacing: 1px; }
+.scan-progress { width: 80px; height: 3px; background: var(--bar-track); border-radius: 2px; overflow: hidden; }
+.scan-fill     { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--ai-purple), var(--accent)); width: 0%; transition: width 0.5s linear; }
+
+/* ═══════════════════════════════════════════
+   EXPAND BUTTONS
+═══════════════════════════════════════════ */
+.expand-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: 'Share Tech Mono', monospace; font-size: 0.58rem; letter-spacing: 1px;
+  padding: 3px 8px; border-radius: 4px; cursor: pointer;
+  border: 1px solid rgba(56,189,248,0.25);
+  background: rgba(56,189,248,0.08); color: var(--accent);
+  transition: all 0.15s;
+}
+.expand-btn:hover { background: rgba(56,189,248,0.22); }
+.expand-btn svg   { width: 11px; height: 11px; }
+
+.cctv-expand-btn {
+  position: absolute; top: 10px; right: 10px; z-index: 10;
+  display: flex; align-items: center; gap: 5px;
+  font-family: 'Share Tech Mono', monospace; font-size: 0.6rem; letter-spacing: 1px;
+  padding: 5px 10px; border-radius: 5px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(0,0,0,0.55); color: #fff;
+  transition: all 0.15s; backdrop-filter: blur(4px);
+}
+.cctv-expand-btn:hover { background: rgba(56,189,248,0.4); border-color: var(--accent); }
+.cctv-expand-btn svg   { width: 12px; height: 12px; }
+
+/* ═══════════════════════════════════════════
+   EXPAND MODAL
+═══════════════════════════════════════════ */
+.modal-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.8); backdrop-filter: blur(6px);
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+
+.modal-box {
+  position: relative;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 14px;
+  width: 100%; max-width: 900px; max-height: 90vh;
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: modal-in 0.2s ease;
+}
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.95) translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; border-bottom: 1px solid var(--border);
+  background: var(--panel2); flex-shrink: 0;
+}
+.modal-title {
+  font-family: 'Rajdhani', sans-serif; font-weight: 700;
+  font-size: 1rem; letter-spacing: 2px; color: var(--accent);
+}
+.modal-close {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--dim); cursor: pointer; font-size: 1.1rem; transition: all 0.15s;
+}
+.modal-close:hover { background: rgba(248,113,113,0.15); color: var(--danger); border-color: var(--danger); }
+.modal-body {
+  flex: 1; overflow: auto; padding: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.modal-cctv-wrap           { position: relative; background: #000; border-radius: 8px; overflow: hidden; }
+.modal-cctv-wrap img       { width: 100%; display: block; }
+.modal-cctv-wrap .scanline { opacity: 0.4; }
+.modal-log-wrap            { overflow: auto; }
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .main            { grid-template-columns: 1fr; }
+  .ai-banner-right { display: none; }
+  .metrics-grid    { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .main       { padding: 10px 12px; }
+  .topbar     { padding: 10px 14px; }
+  .gauge-wrap { flex-direction: column; gap: 16px; align-items: stretch; }
+  .metrics-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo-wrap">
+      <div>
+        <div class="topbar-title">Smart ELO Station</div>
+        <div class="topbar-sub">AI VISION WATER MONITOR</div>
+      </div>
+    </div>
+    <div class="ai-badge">
+      <span class="ai-dot"></span>
+      GOOGLE VISION AI
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="live-indicator">
+      <span class="live-dot"></span>
+      SYSTEM ONLINE
+    </div>
+    <div class="clock" id="clock">--:--:--</div>
+    <a href="setting.html" class="settings-btn" title="Admin Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      SETTINGS
+    </a>
+    <button class="theme-btn" id="theme-btn" title="Toggle light/dark theme" onclick="toggleTheme()">☀️</button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- AI STATUS BANNER -->
+  <div class="ai-banner">
+    <div class="ai-banner-left">
+      <div class="ai-icon">🤖</div>
+      <div>
+        <div class="ai-banner-title">AI VISION SENSOR — ACTIVE</div>
+        <div class="ai-banner-sub" id="banner-sub">กำลังวิเคราะห์ภาพจากกล้อง CCTV ด้วย Google Cloud Vision API แทนที่ hardware sensor</div>
+      </div>
+    </div>
+    <div class="ai-banner-right">
+      <div class="ai-stat">
+        <div class="ai-stat-val" id="ai-confidence">--%</div>
+        <div class="ai-stat-lbl">AI Confidence</div>
+        <div class="confidence-bar">
+          <div class="confidence-fill" id="confidence-fill" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="ai-stat">
+        <div class="ai-stat-val" id="ai-method-val">--</div>
+        <div class="ai-stat-lbl">Detection Method</div>
+      </div>
+      <div class="detection-method-badge" id="detection-badge">WAITING...</div>
+    </div>
+  </div>
+
+  <!-- LEFT COLUMN -->
+  <div class="left-col">
+
+    <!-- COLOR SCALE CARD -->
+    <div class="scale-card">
+      <div class="scale-header">
+        <div class="scale-title">WATER LEVEL — COLOR SCALE</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="scale-source">SOURCE: VISION AI</div>
+          <button class="expand-btn" onclick="openModal('gauge')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            EXPAND
+          </button>
+        </div>
+      </div>
+      <div class="gauge-wrap">
+        <!-- SVG Gauge + readout (text outside SVG, no overlap) -->
+        <div class="gauge-left">
+          <div class="gauge-svg-wrap">
+            <svg width="200" height="115" viewBox="0 0 200 115">
+              <defs>
+                <filter id="arc-glow" x="-40%" y="-40%" width="180%" height="180%">
+                  <feGaussianBlur stdDeviation="3.5" result="blur"/>
+                  <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+              </defs>
+              <!-- Track -->
+              <path d="M 20 110 A 80 80 0 0 1 180 110" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="14" stroke-linecap="round"/>
+              <!-- Zone backgrounds: green 0–40%, yellow 40–70%, red 70–100% -->
+              <path d="M 20 110 A 80 80 0 0 1 75.3 33.9"    fill="none" stroke="#34d399" stroke-width="14" stroke-linecap="round" opacity="0.22"/>
+              <path d="M 75.3 33.9 A 80 80 0 0 1 147.1 45.3" fill="none" stroke="#fbbf24" stroke-width="14" stroke-linecap="round" opacity="0.22"/>
+              <path d="M 147.1 45.3 A 80 80 0 0 1 180 110"  fill="none" stroke="#f87171" stroke-width="14" stroke-linecap="round" opacity="0.22"/>
+              <!-- Active fill with glow -->
+              <path id="gauge-arc" d="M 20 110 A 80 80 0 0 1 20 110" fill="none" stroke="#34d399" stroke-width="14" stroke-linecap="round" filter="url(#arc-glow)" style="transition:all 0.8s ease;"/>
+              <!-- Needle -->
+              <line id="gauge-needle" x1="100" y1="110" x2="100" y2="42"
+                stroke="white" stroke-width="2.5" stroke-linecap="round"
+                style="transform-origin:100px 110px; transform:rotate(-90deg); transition:transform 0.8s ease; opacity:0.7;"/>
+              <!-- Center pin -->
+              <circle cx="100" cy="110" r="7" fill="var(--accent)" id="gauge-center"/>
+              <circle cx="100" cy="110" r="3.5" fill="var(--panel)"/>
+            </svg>
+          </div>
+          <!-- Value display sits cleanly below the arc -->
+          <div class="gauge-readout">
+            <div class="gauge-level-val" id="gauge-val" style="color:var(--ok)">--</div>
+            <span class="gauge-level-unit">CENTIMETERS</span>
+            <span class="gauge-status-text" id="gauge-status-text" style="color:var(--ok)">NORMAL</span>
+          </div>
+        </div>
+
+        <!-- Status tiers -->
+        <div class="color-scale-tiers">
+          <div class="tier tier-green" id="tier-green">
+            <span class="tier-dot"></span>
+            <div class="tier-info">
+              <div class="tier-name">🟢 ปกติ / NORMAL</div>
+              <div class="tier-range">ระดับน้ำ 0 – 39 cm</div>
+            </div>
+            <span class="tier-check">✓</span>
+          </div>
+          <div class="tier tier-yellow" id="tier-yellow">
+            <span class="tier-dot"></span>
+            <div class="tier-info">
+              <div class="tier-name">🟡 เฝ้าระวัง / WARNING</div>
+              <div class="tier-range">ระดับน้ำ 40 – 69 cm</div>
+            </div>
+            <span class="tier-check">⚠</span>
+          </div>
+          <div class="tier tier-red" id="tier-red">
+            <span class="tier-dot"></span>
+            <div class="tier-info">
+              <div class="tier-name">🔴 วิกฤต / CRITICAL</div>
+              <div class="tier-range">ระดับน้ำ ≥ 70 cm</div>
+            </div>
+            <span class="tier-check">🚨</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- METRICS GRID -->
+    <div class="metrics-grid">
+      <div class="metric-mini ok" id="card-level">
+        <div class="mm-label">ระดับน้ำ (AI)</div>
+        <div class="mm-val" id="m-level" style="color:var(--ok)">--</div>
+        <div class="mm-unit">CENTIMETERS</div>
+        <div class="mm-bar"><div class="mm-fill" id="m-level-bar" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+      <div class="metric-mini ok" id="card-status">
+        <div class="mm-label">สถานะ / Status</div>
+        <div class="mm-val" id="m-status-icon" style="font-size:2rem;">🟢</div>
+        <div class="mm-unit" id="m-status-label" style="color:var(--ok)">NORMAL</div>
+        <div class="mm-bar"><div class="mm-fill" id="m-status-bar" style="width:0%;background:var(--ok)"></div></div>
+      </div>
+      <div class="metric-mini ai">
+        <div class="mm-label">AI Scan Count</div>
+        <div class="mm-val" id="m-scans" style="color:var(--ai-purple)">0</div>
+        <div class="mm-unit">TOTAL SCANS</div>
+        <div class="mm-bar"><div class="mm-fill" style="width:100%;background:linear-gradient(90deg,var(--ai-purple),var(--accent))"></div></div>
+      </div>
+    </div>
+
+    <!-- EVENT LOG -->
+    <div class="log-card">
+      <div class="log-header">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="log-title">AI VISION EVENT LOG</div>
+          <button class="expand-btn" onclick="openModal('log')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            EXPAND
+          </button>
+        </div>
+        <div class="log-count-badge" id="log-count-badge">0 records</div>
+      </div>
+      <div class="log-table-wrap">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>เวลา</th>
+              <th>ระดับ (cm)</th>
+              <th>สถานะ</th>
+              <th>วิธีวิเคราะห์</th>
+            </tr>
+          </thead>
+          <tbody id="log-tbody">
+            <tr>
+              <td colspan="5" style="text-align:center;padding:20px;color:var(--dim);font-size:0.72rem;">
+                รอข้อมูลจาก Google Vision API...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="log-footer">
+        <div class="log-footer-info" id="log-footer-info">อัปเดตทุก 15 นาที</div>
+        <button class="export-btn" onclick="exportLog()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          CSV
+        </button>
+      </div>
+    </div>
+
+  </div><!-- /left-col -->
+
+  <!-- RIGHT COLUMN -->
+  <div class="right-col">
+
+    <!-- CCTV -->
+    <div class="cctv-card">
+      <div class="cctv-header">
+        <div class="cctv-title">CCTV — AI SCAN SOURCE</div>
+        <div class="rec-badge"><span class="rec-dot"></span>LIVE SCAN</div>
+      </div>
+      <div class="cctv-wrap">
+        <img id="cctv-img"
+          src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='225'%3E%3Crect fill='%23050c15'/%3E%3Ctext x='50%25' y='48%25' font-family='monospace' font-size='12' fill='%23334466' text-anchor='middle'%3EWaiting for feed...%3C/text%3E%3Ctext x='50%25' y='58%25' font-family='monospace' font-size='10' fill='%23223355' text-anchor='middle'%3EGoogle Vision Scanning...%3C/text%3E%3C/svg%3E"
+          alt="CCTV"/>
+        <div class="scanline"></div>
+        <div class="cctv-corners">
+          <span class="c-tl"></span><span class="c-tr"></span>
+          <span class="c-bl"></span><span class="c-br"></span>
+        </div>
+        <button class="cctv-expand-btn" onclick="openModal('cctv')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          FULLSCREEN
+        </button>
+        <div class="cctv-hud">
+          <div class="hud-time" id="hud-time">-- : -- : --</div>
+          <div class="ai-scan-badge"><span class="ai-scan-dot"></span>AI ANALYZING</div>
+        </div>
+      </div>
+      <div class="cctv-footer">
+        <div class="cctv-ts" id="cctv-ts">Last scan: --</div>
+        <div class="ai-scan-badge" id="frame-count">FRAME 0/∞</div>
+      </div>
+    </div>
+
+    <!-- AI ANALYSIS -->
+    <div class="analysis-card">
+      <div class="analysis-title">
+        VISION API ANALYSIS RESULT
+        <button class="expand-btn" style="margin-left:auto;" onclick="openModal('analysis')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          EXPAND
+        </button>
+      </div>
+
+      <div id="analysis-details">
+        <div>
+          <div class="section-label">🔍 Objects Detected</div>
+          <div class="vision-objects" id="vision-objects">
+            <span class="obj-tag" style="color:var(--dim)">--</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-label">🎨 Dominant Colors (สีหลักในภาพ)</div>
+          <div class="color-swatches" id="color-swatches">
+            <span style="font-size:0.65rem;color:var(--dim)">--</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-label">🏷 Label Detection Score</div>
+          <div class="ai-labels" id="ai-labels">
+            <div style="font-size:0.65rem;color:var(--dim);">--</div>
+          </div>
+        </div>
+
+        <div class="water-score-box">
+          <div class="water-score-header">
+            <span class="water-score-title">💧 WATER SCORE (Blue Analysis)</span>
+            <span class="water-score-num" id="water-score-val">0.000</span>
+          </div>
+          <div class="water-score-track">
+            <div class="water-score-fill" id="water-score-bar"></div>
+          </div>
+          <div class="water-score-desc">ค่าความเข้มสีน้ำเงิน/เขียว ที่บ่งบอกระดับน้ำในภาพ</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /right-col -->
+
+  <!-- BOTTOM BAR -->
+  <div class="last-update-bar">
+    <div class="upd-left">
+      <div class="upd-dot scanning" id="upd-dot"></div>
+      <span id="upd-text">กำลังรอข้อมูลจาก Node-RED...</span>
+    </div>
+    <div class="upd-right">
+      <div class="scan-progress"><div class="scan-fill" id="scan-fill"></div></div>
+      <div class="next-scan" id="next-scan-label">NEXT SCAN: --</div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- EXPAND MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">EXPAND</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// CONFIG — เปลี่ยน URL ตาม Node-RED ของคุณ
+// ═══════════════════════════════════════════
+const API_AI_WATER  = 'https://api.alatrams.com/get-ai-water';
+const API_CCTV      = 'https://api.alatrams.com/get-cctv';
+const SCAN_INTERVAL = 900; // seconds (15 min)
+
+// ─── DOM helper ───────────────────────────
+const $ = id => document.getElementById(id);
+
+// ─── State ────────────────────────────────
+let scanCount = 0;
+let logData   = [];
+let nextTick  = SCAN_INTERVAL;
+
+// ─── Theme ────────────────────────────────
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  $('theme-btn').textContent = isLight ? '🌙' : '☀️';
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+
+// Restore saved theme on load
+if (localStorage.getItem('theme') === 'light') {
+  document.body.classList.add('light');
+  document.addEventListener('DOMContentLoaded', () => { $('theme-btn').textContent = '🌙'; });
+}
+
+// ─── Clock ────────────────────────────────
+setInterval(() => {
+  const now = new Date();
+  $('clock').textContent    = now.toLocaleTimeString('th-TH', { hour12: false });
+  $('hud-time').textContent = now.toTimeString().slice(0, 8);
+}, 1000);
+
+// ─── Countdown to next scan ───────────────
+setInterval(() => {
+  nextTick = Math.max(0, nextTick - 1);
+  const m = Math.floor(nextTick / 60);
+  const s = nextTick % 60;
+  $('next-scan-label').textContent = `NEXT SCAN: ${m}:${s.toString().padStart(2, '0')}`;
+  $('scan-fill').style.width = ((SCAN_INTERVAL - nextTick) / SCAN_INTERVAL * 100) + '%';
+  if (nextTick === 0) nextTick = SCAN_INTERVAL;
+}, 1000);
+
+// ═══════════════════════════════════════════
+// GAUGE
+// ═══════════════════════════════════════════
+function updateGauge(level) {
+  const pct   = Math.min(100, Math.max(0, level)) / 100;
+  const color = level >= 70 ? '#f87171' : level >= 40 ? '#fbbf24' : '#34d399';
+
+  // Arc path — cx=100, cy=110, r=80
+  const angle    = (-180 + 180 * pct) * Math.PI / 180;
+  const ex       = (100 + 80 * Math.cos(angle)).toFixed(2);
+  const ey       = (110 + 80 * Math.sin(angle)).toFixed(2);
+  const largeArc = pct > 0.5 ? 1 : 0;
+  const d        = pct <= 0 ? 'M 20 110 A 80 80 0 0 1 20 110'
+                             : `M 20 110 A 80 80 0 ${largeArc} 1 ${ex} ${ey}`;
+
+  const arc = $('gauge-arc');
+  arc.setAttribute('d', d);
+  arc.setAttribute('stroke', color);
+
+  $('gauge-needle').style.transform = `rotate(${pct * 180 - 90}deg)`;
+  $('gauge-center').setAttribute('fill', color);
+  $('gauge-val').textContent  = level;
+  $('gauge-val').style.color  = color;
+
+  const s = getStatusInfo(level);
+  $('gauge-status-text').textContent = s.label;
+  $('gauge-status-text').style.color = color;
+}
+
+// ═══════════════════════════════════════════
+// STATUS
+// ═══════════════════════════════════════════
+function getStatusInfo(level) {
+  if (level >= 70) return { cls: 'danger', icon: '🔴', label: 'CRITICAL', labelTH: 'วิกฤต',     color: '#f87171', tier: 'red'    };
+  if (level >= 40) return { cls: 'warn',   icon: '🟡', label: 'WARNING',  labelTH: 'เฝ้าระวัง', color: '#fbbf24', tier: 'yellow' };
+  return               { cls: 'ok',     icon: '🟢', label: 'NORMAL',   labelTH: 'ปกติ',       color: '#34d399', tier: 'green'  };
+}
+
+const METHOD_LABELS = {
+  object_localization: 'OBJECT DETECT',
+  color_analysis:      'COLOR ANALYSIS',
+  label_detection:     'LABEL DETECT',
+  no_water_detected:   'NO WATER',
+};
+
+// ═══════════════════════════════════════════
+// UI UPDATE
+// ═══════════════════════════════════════════
+function updateUI(data) {
+  const level  = data.water_level || 0;
+  const s      = getStatusInfo(level);
+  const method = METHOD_LABELS[data.detection_method] || data.detection_method || '--';
+  const barPct = Math.min(100, (level / 80) * 100) + '%';
+  const now    = new Date().toLocaleTimeString('th-TH', { hour12: false });
+  scanCount++;
+
+  updateGauge(level);
+
+  // Level card
+  $('m-level').textContent       = level;
+  $('m-level').style.color       = s.color;
+  $('m-level-bar').style.width   = barPct;
+  $('m-level-bar').style.background = s.color;
+
+  // Status card
+  $('m-status-icon').textContent         = s.icon;
+  $('m-status-label').textContent        = `${s.label} / ${s.labelTH}`;
+  $('m-status-label').style.color        = s.color;
+  $('m-status-bar').style.width          = barPct;
+  $('m-status-bar').style.background     = s.color;
+  $('card-status').className             = `metric-mini ${s.cls}`;
+
+  $('m-scans').textContent = scanCount;
+
+  // Tier highlight
+  ['green', 'yellow', 'red'].forEach(t => $(`tier-${t}`).classList.remove('active-tier'));
+  $(`tier-${s.tier}`).classList.add('active-tier');
+
+  // Banner
+  $('ai-method-val').textContent   = method;
+  $('detection-badge').textContent = method;
+  $('banner-sub').textContent      = `ตรวจพบ: ${data.status_th || s.labelTH} | วิธี: ${method} | เวลา: ${now}`;
+
+  // Confidence
+  const conf = data.alert_level === 3 ? 91 : data.alert_level === 2 ? 85 : 78;
+  $('ai-confidence').textContent   = conf + '%';
+  $('confidence-fill').style.width = conf + '%';
+
+  // Bottom bar
+  $('upd-dot').className    = 'upd-dot ok';
+  $('upd-text').textContent = `อัปเดตล่าสุด: ${now} | ระดับน้ำ: ${level} cm | ${s.label}`;
+  nextTick = SCAN_INTERVAL;
+
+  // Log
+  logData.unshift({ time: now, level, cls: s.cls, label: `${s.label}/${s.labelTH}`, method });
+  if (logData.length > 100) logData.pop();
+  renderLog();
+}
+
+function renderLog() {
+  $('log-count-badge').textContent = logData.length + ' records';
+  $('log-footer-info').textContent = `รวม ${logData.length} รายการ | อัปเดตทุก ${SCAN_INTERVAL / 60} นาที`;
+  if (!logData.length) return;
+
+  $('log-tbody').innerHTML = logData.map((r, i) => `
+    <tr>
+      <td class="td-time">${logData.length - i}</td>
+      <td class="td-time">${r.time}</td>
+      <td class="td-val ${r.cls}">${r.level}</td>
+      <td><span class="status-pill ${r.cls}"><span class="pill-dot"></span>${r.label}</span></td>
+      <td><span class="status-pill ai"><span class="pill-dot"></span>${r.method}</span></td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// VISION DETAILS
+// ═══════════════════════════════════════════
+const WATER_KEYWORDS = ['water', 'flood', 'liquid'];
+
+function updateVisionDetails(data) {
+  // Objects
+  $('vision-objects').innerHTML = (data.raw_objects_found > 0 && data.vision_objects)
+    ? data.vision_objects.map(o => {
+        const isWater = WATER_KEYWORDS.some(w => o.name.toLowerCase().includes(w));
+        return `<span class="obj-tag ${isWater ? 'water' : ''}">${o.name} <span class="obj-tag-score">${Math.round(o.score * 100)}%</span></span>`;
+      }).join('')
+    : `<span class="obj-tag" style="color:var(--dim)">ไม่พบวัตถุน้ำ (${data.raw_objects_found || 0} objects total)</span>`;
+
+  // Color swatches
+  if (data.dominant_colors?.length) {
+    $('color-swatches').innerHTML = data.dominant_colors.slice(0, 6).map(c =>
+      `<div class="swatch-item">
+        <div class="swatch" style="background:rgb(${c.r},${c.g},${c.b})"></div>
+        <div class="swatch-pct">${Math.round(c.pct * 100)}%</div>
+      </div>`).join('');
+  }
+
+  // Labels
+  if (data.vision_labels?.length) {
+    $('ai-labels').innerHTML = data.vision_labels.slice(0, 5).map(l =>
+      `<div class="ai-label-row">
+        <div class="ai-label-name">${l.description}</div>
+        <div class="ai-label-bar-wrap"><div class="ai-label-bar-fill" style="width:${Math.round(l.score * 100)}%"></div></div>
+        <div class="ai-label-pct">${Math.round(l.score * 100)}%</div>
+      </div>`).join('');
+  }
+
+  // Water score
+  if (typeof data.water_score === 'number') {
+    $('water-score-val').textContent = data.water_score.toFixed(3);
+    $('water-score-bar').style.width = Math.min(100, data.water_score * 100) + '%';
+  }
+}
+
+// ═══════════════════════════════════════════
+// API FETCHERS
+// ═══════════════════════════════════════════
+async function fetchCCTV() {
+  try {
+    const data = await fetch(API_CCTV).then(r => r.json());
+    if (data.image_base64) {
+      $('cctv-img').src            = data.image_base64;
+      $('cctv-ts').textContent     = `Last scan: ${new Date().toLocaleTimeString('th-TH', { hour12: false })}`;
+      $('frame-count').textContent = `FRAME ${scanCount}/∞`;
+    }
+  } catch (e) { console.warn('CCTV fetch failed:', e); }
+}
+
+async function fetchAIWater() {
+  try {
+    const data = await fetch(API_AI_WATER).then(r => r.json());
+    if (data && typeof data.water_level !== 'undefined') {
+      updateUI(data);
+      updateVisionDetails(data);
+    }
+  } catch (e) {
+    console.warn('AI Water fetch failed — demo mode active:', e);
+    runDemo();
+  }
+}
+
+// ═══════════════════════════════════════════
+// DEMO MODE — runs when API is unreachable
+// ═══════════════════════════════════════════
+function runDemo() {
+  const DEMO_LEVELS  = [12, 25, 38, 45, 58, 72, 33, 15, 48, 67];
+  const DEMO_METHODS = ['color_analysis', 'label_detection', 'object_localization'];
+  let idx = 0;
+
+  function tick() {
+    const level  = DEMO_LEVELS[idx % DEMO_LEVELS.length];
+    const method = DEMO_METHODS[idx % 3];
+    const s      = getStatusInfo(level);
+    idx++;
+
+    const fakeData = {
+      water_level:       level,
+      color_status:      s.cls === 'ok' ? 'green' : s.cls === 'warn' ? 'yellow' : 'red',
+      alert_level:       s.cls === 'danger' ? 3 : s.cls === 'warn' ? 2 : 1,
+      status_th:         s.labelTH,
+      status_en:         s.label,
+      detection_method:  method,
+      raw_objects_found: Math.floor(Math.random() * 4),
+      vision_objects: [
+        { name: 'Water',  score: 0.82 },
+        { name: 'Flood',  score: 0.65 },
+        { name: 'Nature', score: 0.71 },
+      ],
+      dominant_colors: [
+        { r: 30,  g: 80,  b: 160, pct: 0.35 },
+        { r: 20,  g: 40,  b: 90,  pct: 0.22 },
+        { r: 60,  g: 110, b: 80,  pct: 0.18 },
+        { r: 120, g: 140, b: 100, pct: 0.15 },
+        { r: 200, g: 180, b: 100, pct: 0.10 },
+      ],
+      vision_labels: [
+        { description: 'Water',  score: 0.92 },
+        { description: 'Flood',  score: 0.78 },
+        { description: 'River',  score: 0.65 },
+        { description: 'Nature', score: 0.71 },
+        { description: 'Sky',    score: 0.55 },
+      ],
+      water_score: Math.random() * 0.8,
+    };
+
+    updateUI(fakeData);
+    updateVisionDetails(fakeData);
+    $('banner-sub').textContent = `[DEMO MODE] ข้อมูลจำลอง — เชื่อมต่อ Node-RED ที่ ${API_AI_WATER} เพื่อรับข้อมูลจริง`;
+  }
+
+  tick();
+  setInterval(tick, 8000);
+}
+
+// ─── Export log as CSV ────────────────────
+function exportLog() {
+  const header = '#,เวลา,ระดับน้ำ (cm),สถานะ,วิธีวิเคราะห์\n';
+  const rows   = logData.map((r, i) => `${logData.length - i},"${r.time}",${r.level},${r.label},${r.method}`).join('\n');
+  const blob   = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8' });
+  const a      = Object.assign(document.createElement('a'), {
+    href:     URL.createObjectURL(blob),
+    download: `ai-water-log-${new Date().toISOString().slice(0, 10)}.csv`,
+  });
+  a.click();
+}
+
+// ═══════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════
+const EXPAND_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
+
+function openModal(type) {
+  const body  = $('modal-body');
+  const title = $('modal-title');
+  body.innerHTML = '';
+  body.style.padding = '16px';
+
+  if (type === 'cctv') {
+    title.textContent  = 'CCTV — AI SCAN SOURCE';
+    body.style.padding = '0';
+    body.innerHTML = `
+      <div class="modal-cctv-wrap">
+        <img src="${$('cctv-img').src}" alt="CCTV Full"/>
+        <div class="scanline"></div>
+        <div class="cctv-corners">
+          <span class="c-tl"></span><span class="c-tr"></span>
+          <span class="c-bl"></span><span class="c-br"></span>
+        </div>
+        <div class="cctv-hud">
+          <div class="hud-time">${$('hud-time').textContent}</div>
+          <div class="ai-scan-badge"><span class="ai-scan-dot"></span>AI ANALYZING</div>
+        </div>
+      </div>
+      <div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+        <div class="cctv-ts">${$('cctv-ts').textContent}</div>
+        <div class="ai-scan-badge">${$('frame-count').textContent}</div>
+      </div>`;
+
+  } else if (type === 'gauge') {
+    title.textContent = 'WATER LEVEL — COLOR SCALE';
+    // Show current level large + all tiers
+    const lvl   = $('gauge-val').textContent;
+    const color = $('gauge-val').style.color;
+    const stat  = $('gauge-status-text').textContent;
+    body.innerHTML = `
+      <div style="text-align:center;padding:24px 0 16px;">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:6rem;line-height:1;color:${color};letter-spacing:-2px;">${lvl}</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:0.75rem;color:var(--dim);letter-spacing:3px;margin-top:6px;">CENTIMETERS</div>
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;letter-spacing:3px;color:${color};margin-top:8px;">${stat}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;max-width:440px;margin:0 auto;">
+        ${['green','yellow','red'].map(t => $(`tier-${t}`).outerHTML).join('')}
+      </div>`;
+
+  } else if (type === 'analysis') {
+    title.textContent = 'VISION API ANALYSIS RESULT';
+    body.innerHTML    = $('analysis-details').innerHTML;
+
+  } else if (type === 'log') {
+    title.textContent  = 'AI VISION EVENT LOG';
+    body.style.padding = '0';
+    const tbody = $('log-tbody').innerHTML;
+    body.innerHTML = `
+      <div class="modal-log-wrap">
+        <table class="log-table">
+          <thead><tr>
+            <th>#</th><th>เวลา</th><th>ระดับ (cm)</th><th>สถานะ</th><th>วิธีวิเคราะห์</th>
+          </tr></thead>
+          <tbody>${tbody}</tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:flex-end;padding:8px 12px;border-top:1px solid var(--border);">
+        <button class="export-btn" onclick="exportLog()">
+          ${EXPAND_ICON} CSV
+        </button>
+      </div>`;
+  }
+
+  $('modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  $('modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function closeModalOutside(e) { if (e.target === $('modal-overlay')) closeModal(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ─── Init ─────────────────────────────────
+fetchAIWater();
+fetchCCTV();
+setInterval(fetchAIWater, SCAN_INTERVAL * 1000); // every 15 min
+setInterval(fetchCCTV,    30_000);                // every 30 sec
+</script>
+</body>
+</html>
