@@ -291,11 +291,11 @@
     </div>
     <div class="lock-field">
       <label id="lock-user-label">USERNAME</label>
-      <input type="text" id="lock-username" placeholder="admin" autocomplete="username"/>
+      <input type="text" id="lock-username" placeholder="username" autocomplete="username"/>
     </div>
     <div class="lock-field">
       <label id="lock-pass-label">PASSWORD</label>
-      <input type="password" id="lock-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
+      <input type="password" id="lock-password" placeholder="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/>
     </div>
     <button class="lock-btn" onclick="doLogin()" id="lock-btn-el">ENTER SYSTEM</button>
     <a href="sensor_ai.html" style="text-decoration:none; display:block; margin-top:16px; text-align:center;">
@@ -306,7 +306,7 @@
     </a>
     <div class="lock-error hidden" id="lock-error">⚠ INVALID CREDENTIALS</div>
     <div class="lock-hint" id="lock-hint">Default</div>
-    <div class="lock-badge"><span id="lock-badge-text">PROTECTED · NODE-RED CLOUD BACKEND</span></div>
+    <div class="lock-badge"><span id="lock-badge-text">PROTECTED · NODE-RED BACKEND</span></div>
   </div>
 </div>
 
@@ -382,7 +382,7 @@
       </button>
 
       <hr class="sidebar-divider"/>
-      <div class="sidebar-section-label" id="sl-cloud">BACKEND / CLOUD</div>
+      <div class="sidebar-section-label" id="sl-cloud">BACKEND</div>
       <button class="sidebar-item" onclick="navTo('nodered',this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/></svg>
         <span id="si-nodered">Node-RED</span>
@@ -441,11 +441,11 @@
             </div>
             <div class="setting-row">
               <div class="setting-info"><div class="setting-label" id="sl-owner">Owner / Organization</div><div class="setting-desc" id="sd-owner">Name of the organization operating this station</div></div>
-              <div class="setting-control"><input class="s-input s-input-md" id="cfg-owner" value="TRAMS System"/></div>
+              <div class="setting-control"><input class="s-input s-input-md" id="cfg-owner" value="SE System"/></div>
             </div>
             <div class="setting-row">
               <div class="setting-info"><div class="setting-label" id="sl-contact">Contact Email</div><div class="setting-desc" id="sd-contact">Alert notifications will be sent here</div></div>
-              <div class="setting-control"><input class="s-input s-input-md" id="cfg-email" type="email" value="admin@trams.local"/></div>
+              <div class="setting-control"><input class="s-input s-input-md" id="cfg-email" type="email" value="admin@local"/></div>
             </div>
             <div class="setting-row">
               <div class="setting-info"><div class="setting-label" id="sl-timezone">Timezone</div><div class="setting-desc" id="sd-timezone">Used for timestamps and scheduling</div></div>
@@ -472,19 +472,19 @@
           <div class="card-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><div class="card-header-title" id="ch-sysstat">System Status</div></div>
           <div class="card-body">
             <div class="setting-row">
-              <div class="setting-info"><div class="setting-label">Node-RED Backend</div><div class="setting-desc">103.234.236.68:1880</div></div>
+              <div class="setting-info"><div class="setting-label">Node-RED Backend</div><div class="setting-desc">xxx.xxx.xxx.xx:1881</div></div>
               <div class="setting-control"><span class="status-pill online"><span class="status-pill-dot"></span>ONLINE</span></div>
             </div>
             <div class="setting-row">
-              <div class="setting-info"><div class="setting-label">InfluxDB Storage</div><div class="setting-desc">Docker Cloud · influxdb:8086</div></div>
+              <div class="setting-info"><div class="setting-label">InfluxDB Storage</div><div class="setting-desc">Docker · influxdb</div></div>
               <div class="setting-control"><span class="status-pill online"><span class="status-pill-dot"></span>CONNECTED</span></div>
             </div>
             <div class="setting-row">
-              <div class="setting-info"><div class="setting-label">Water Level Sensor</div><div class="setting-desc">Ultrasonic HC-SR04 · 3s poll</div></div>
+              <div class="setting-info"><div class="setting-label">Water Level Sensor</div><div class="setting-desc">HC-SR04 · 3s poll</div></div>
               <div class="setting-control"><span class="status-pill online"><span class="status-pill-dot"></span>ACTIVE</span></div>
             </div>
             <div class="setting-row">
-              <div class="setting-info"><div class="setting-label">CCTV Module</div><div class="setting-desc">ESP32-CAM · JPEG base64 stream</div></div>
+              <div class="setting-info"><div class="setting-label">CCTV Module</div><div class="setting-desc">ESP32-CAM</div></div>
               <div class="setting-control"><span class="status-pill online"><span class="status-pill-dot"></span>STREAMING</span></div>
             </div>
           </div>
@@ -606,7 +606,7 @@
               <div class="setting-info"><div class="setting-label" id="sl-cam-api">Node-RED CCTV Endpoint</div><div class="setting-desc" id="sd-cam-api">Returns JSON: {image_base64: "data:image/jpeg;base64,..."}</div></div>
               <div class="setting-control" style="flex-direction:column;align-items:flex-start;min-width:280px;">
                 <div class="input-btn-group">
-                  <input class="s-input" id="cfg-cam-api" value="http://103.234.236.68:1880/get-cctv"/>
+                  <input class="s-input" id="cfg-cam-api" value="http://xxx.xxx.x.x:1881/get-cctv"/>
                   <button class="btn" onclick="testCCTV()">TEST</button>
                 </div>
                 <div class="test-result" id="cam-test-result"></div>
@@ -616,7 +616,7 @@
               <div class="setting-info"><div class="setting-label" id="sl-cam-direct">Direct RTSP / HTTP URL</div><div class="setting-desc" id="sd-cam-direct">Optional direct camera URL (opens in new tab)</div></div>
               <div class="setting-control" style="min-width:280px;">
                 <div class="input-btn-group">
-                  <input class="s-input" id="cfg-cam-direct" placeholder="http://192.168.x.x:81/stream"/>
+                  <input class="s-input" id="cfg-cam-direct" placeholder="http://xxx.xxx.x.x:81/stream"/>
                   <button class="btn" onclick="openCamDirect()">OPEN</button>
                 </div>
               </div>
@@ -689,7 +689,7 @@
       <div class="settings-section" id="sec-nodered">
         <div class="section-header">
           <div class="section-header-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><polyline points="8 21 12 17 16 21"/></svg></div>
-          <div><div class="section-header-title" id="sh-nodered">NODE-RED BACKEND</div><div class="section-header-sub" id="shs-nodered">API endpoint configuration for cloud backend</div></div>
+          <div><div class="section-header-title" id="sh-nodered">NODE-RED BACKEND</div><div class="section-header-sub" id="shs-nodered">API endpoint configuration for backend</div></div>
         </div>
         <div class="settings-card">
           <div class="card-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><div class="card-header-title" id="ch-nr-endpoints">API Endpoints</div></div>
@@ -698,7 +698,7 @@
               <div class="setting-info"><div class="setting-label" id="sl-nr-base">Node-RED Base URL</div><div class="setting-desc" id="sd-nr-base">IP/hostname and port of your Node-RED Docker container</div></div>
               <div class="setting-control" style="flex-direction:column;align-items:flex-start;min-width:280px;">
                 <div class="input-btn-group">
-                  <input class="s-input" id="cfg-nr-base" value="http://103.234.236.68:1880"/>
+                  <input class="s-input" id="cfg-nr-base" value="http://xxx.xxx.x.x:1881"/>
                   <button class="btn" onclick="testNodeRED()">PING</button>
                 </div>
                 <div class="test-result" id="nr-test-result"></div>
@@ -767,7 +767,7 @@
           <div class="card-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg><div class="card-header-title" id="ch-email-notif">Email Notifications</div></div>
           <div class="card-body">
             <div class="setting-row"><div class="setting-info"><div class="setting-label" id="sl-email-en">Enable Email Alerts</div><div class="setting-desc">Send email when thresholds are exceeded</div></div><div class="setting-control"><div class="s-toggle on" id="tog-email" onclick="toggleSwitch('tog-email')"><div class="s-toggle-thumb"></div></div></div></div>
-            <div class="setting-row"><div class="setting-info"><div class="setting-label" id="sl-email-to">Recipient Email(s)</div><div class="setting-desc">Comma-separated list</div></div><div class="setting-control"><input class="s-input s-input-md" id="cfg-email-to" value="admin@trams.local"/></div></div>
+            <div class="setting-row"><div class="setting-info"><div class="setting-label" id="sl-email-to">Recipient Email(s)</div><div class="setting-desc">Comma-separated list</div></div><div class="setting-control"><input class="s-input s-input-md" id="cfg-email-to" value="admin@local"/></div></div>
             <div class="setting-row">
               <div class="setting-info"><div class="setting-label" id="sl-email-on">Notify on</div></div>
               <div class="setting-control" style="flex-direction:column;align-items:flex-start;gap:6px;">
@@ -804,7 +804,7 @@
           <div class="card-body">
             <div class="setting-row"><div class="setting-info"><div class="setting-label" id="sl-def-lang">Default Language</div><div class="setting-desc">Language shown when dashboard first loads</div></div><div class="setting-control"><select class="s-select" id="cfg-def-lang"><option value="en" selected>English</option><option value="th">ภาษาไทย</option></select></div></div>
             <div class="setting-row"><div class="setting-info"><div class="setting-label" id="sl-def-theme">Default Theme</div><div class="setting-desc">Theme applied when dashboard first opens</div></div><div class="setting-control"><select class="s-select" id="cfg-def-theme"><option value="dark" selected>Dark (Cyberpunk)</option><option value="light">Light</option></select></div></div>
-            <div class="setting-row"><div class="setting-info"><div class="setting-label" id="sl-show-intro">Show Intro Animation</div><div class="setting-desc">Play TRAMS logo video on dashboard load</div></div><div class="setting-control"><div class="s-toggle on" id="tog-intro" onclick="toggleSwitch('tog-intro')"><div class="s-toggle-thumb"></div></div></div></div>
+            <div class="setting-row"><div class="setting-info"><div class="setting-label" id="sl-show-intro">Show Intro Animation</div><div class="setting-desc">Play logo video on dashboard load</div></div><div class="setting-control"><div class="s-toggle on" id="tog-intro" onclick="toggleSwitch('tog-intro')"><div class="s-toggle-thumb"></div></div></div></div>
             <div class="setting-row"><div class="setting-info"><div class="setting-label">Show Map Panel</div><div class="setting-desc">Display the Leaflet map on dashboard</div></div><div class="setting-control"><div class="s-toggle on" id="tog-map" onclick="toggleSwitch('tog-map')"><div class="s-toggle-thumb"></div></div></div></div>
             <div class="setting-row"><div class="setting-info"><div class="setting-label">Show History Chart</div><div class="setting-desc">Display the water level history chart</div></div><div class="setting-control"><div class="s-toggle on" id="tog-chart" onclick="toggleSwitch('tog-chart')"><div class="s-toggle-thumb"></div></div></div></div>
           </div>
@@ -903,11 +903,11 @@ if(localStorage.getItem('elo-theme')==='light')document.body.classList.add('ligh
 
 // I18N
 const i18n={
-  en:{themeDark:'DARK',themeLight:'LIGHT',lockTitle:'ADMIN SETTINGS',lockSub:'SMART ELO · AUTHORIZED PERSONNEL ONLY',lockUser:'USERNAME',lockPass:'PASSWORD',lockBtn:'ENTER SYSTEM',lockBadge:'PROTECTED · NODE-RED CLOUD BACKEND',lockError:'⚠ INVALID CREDENTIALS',back:'DASHBOARD',sub:'ADMIN CONFIGURATION · NODE-RED CLOUD',adminStatus:'SESSION ACTIVE',logout:'Logout',saved:'Configuration saved',allSaved:'All changes saved',
-  sl_device:'DEVICE',sl_cloud:'BACKEND / CLOUD',sl_system:'SYSTEM',si_station:'Station Info',si_sensor:'Sensor Config',si_camera:'Camera (CCTV)',si_location:'Location & Map',si_nodered:'Node-RED',si_influxdb:'InfluxDB',si_alerts:'Alerts & Notify',si_display:'Display & UI',si_account:'Account',si_actlog:'Activity Log',
-  sh_station:'STATION INFO',shs_station:'General device and ownership configuration',sh_sensor:'SENSOR CONFIG',shs_sensor:'Calibration, polling intervals and alert thresholds',sh_camera:'CAMERA (CCTV)',shs_camera:'IP camera stream configuration and preview',sh_location:'LOCATION & MAP',shs_location:'GPS coordinates and map display settings',sh_nodered:'NODE-RED BACKEND',shs_nodered:'API endpoint configuration for cloud backend',sh_influx:'INFLUXDB',shs_influx:'Time-series database Docker container settings',sh_alerts:'ALERTS & NOTIFY',shs_alerts:'Configure notification channels for flood events',sh_display:'DISPLAY & UI',shs_display:'Dashboard appearance and layout settings',sh_account:'ACCOUNT',shs_account:'Admin credentials and user management',sh_actlog:'ACTIVITY LOG',shs_actlog:'System events, config changes and flood alerts'},
-  th:{themeDark:'มืด',themeLight:'สว่าง',lockTitle:'ตั้งค่าผู้ดูแลระบบ',lockSub:'SMART ELO · เฉพาะผู้ได้รับอนุญาต',lockUser:'ชื่อผู้ใช้',lockPass:'รหัสผ่าน',lockBtn:'เข้าสู่ระบบ',lockBadge:'ป้องกันแล้ว · NODE-RED CLOUD BACKEND',lockError:'⚠ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',back:'แดชบอร์ด',sub:'ตั้งค่าผู้ดูแล',adminStatus:'SESSION ACTIVE',logout:'ออกจากระบบ',saved:'บันทึกการตั้งค่าแล้ว',allSaved:'บันทึกทั้งหมดแล้ว',
-  sl_device:'อุปกรณ์',sl_cloud:'BACKEND / CLOUD',sl_system:'ระบบ',si_station:'ข้อมูลสถานี',si_sensor:'ตั้งค่าเซ็นเซอร์',si_camera:'กล้อง CCTV',si_location:'ตำแหน่ง & แผนที่',si_nodered:'Node-RED',si_influxdb:'InfluxDB',si_alerts:'การแจ้งเตือน',si_display:'การแสดงผล',si_account:'บัญชีผู้ใช้',si_actlog:'บันทึกกิจกรรม',
+  en:{themeDark:'DARK',themeLight:'LIGHT',lockTitle:'ADMIN SETTINGS',lockSub:'SMART ELO · AUTHORIZED PERSONNEL ONLY',lockUser:'USERNAME',lockPass:'PASSWORD',lockBtn:'ENTER SYSTEM',lockBadge:'PROTECTED · COPYRIGHT',lockError:'⚠ INVALID CREDENTIALS',back:'DASHBOARD',sub:'ADMIN CONFIGURATION · NODE-RED',adminStatus:'SESSION ACTIVE',logout:'Logout',saved:'Configuration saved',allSaved:'All changes saved',
+  sl_device:'DEVICE',sl_cloud:'BACKEND',sl_system:'SYSTEM',si_station:'Station Info',si_sensor:'Sensor Config',si_camera:'Camera (CCTV)',si_location:'Location & Map',si_nodered:'Node-RED',si_influxdb:'InfluxDB',si_alerts:'Alerts & Notify',si_display:'Display & UI',si_account:'Account',si_actlog:'Activity Log',
+  sh_station:'STATION INFO',shs_station:'General device and ownership configuration',sh_sensor:'SENSOR CONFIG',shs_sensor:'Calibration, polling intervals and alert thresholds',sh_camera:'CAMERA (CCTV)',shs_camera:'IP camera stream configuration and preview',sh_location:'LOCATION & MAP',shs_location:'GPS coordinates and map display settings',sh_nodered:'NODE-RED BACKEND',shs_nodered:'API endpoint configuration for backend',sh_influx:'INFLUXDB',shs_influx:'Time-series database Docker container settings',sh_alerts:'ALERTS & NOTIFY',shs_alerts:'Configure notification channels for flood events',sh_display:'DISPLAY & UI',shs_display:'Dashboard appearance and layout settings',sh_account:'ACCOUNT',shs_account:'Admin credentials and user management',sh_actlog:'ACTIVITY LOG',shs_actlog:'System events, config changes and flood alerts'},
+  th:{themeDark:'มืด',themeLight:'สว่าง',lockTitle:'ตั้งค่าผู้ดูแลระบบ',lockSub:'SMART ELO · เฉพาะผู้ได้รับอนุญาต',lockUser:'ชื่อผู้ใช้',lockPass:'รหัสผ่าน',lockBtn:'เข้าสู่ระบบ',lockBadge:'ป้องกันแล้ว · NODE-RED BACKEND',lockError:'⚠ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',back:'แดชบอร์ด',sub:'ตั้งค่าผู้ดูแล',adminStatus:'SESSION ACTIVE',logout:'ออกจากระบบ',saved:'บันทึกการตั้งค่าแล้ว',allSaved:'บันทึกทั้งหมดแล้ว',
+  sl_device:'อุปกรณ์',sl_cloud:'BACKEND',sl_system:'ระบบ',si_station:'ข้อมูลสถานี',si_sensor:'ตั้งค่าเซ็นเซอร์',si_camera:'กล้อง CCTV',si_location:'ตำแหน่ง & แผนที่',si_nodered:'Node-RED',si_influxdb:'InfluxDB',si_alerts:'การแจ้งเตือน',si_display:'การแสดงผล',si_account:'บัญชีผู้ใช้',si_actlog:'บันทึกกิจกรรม',
   sh_station:'ข้อมูลสถานี',shs_station:'การตั้งค่าทั่วไปของอุปกรณ์',sh_sensor:'ตั้งค่าเซ็นเซอร์',shs_sensor:'การสอบเทียบ การสุ่มตัวอย่าง และค่าเตือนภัย',sh_camera:'กล้อง CCTV',shs_camera:'การตั้งค่าสตรีมกล้อง IP',sh_location:'ตำแหน่ง & แผนที่',shs_location:'พิกัด GPS และการแสดงแผนที่',sh_nodered:'NODE-RED BACKEND',shs_nodered:'การตั้งค่า API endpoint',sh_influx:'INFLUXDB',shs_influx:'การตั้งค่าฐานข้อมูล time-series',sh_alerts:'การแจ้งเตือน',shs_alerts:'ตั้งค่าช่องทางแจ้งเตือนเหตุน้ำท่วม',sh_display:'การแสดงผล',shs_display:'การตั้งค่าหน้าตา dashboard',sh_account:'บัญชีผู้ใช้',shs_account:'รหัสผ่าน admin และจัดการผู้ใช้',sh_actlog:'บันทึกกิจกรรม',shs_actlog:'เหตุการณ์ระบบ การเปลี่ยนแปลงการตั้งค่า'}
 };
 
