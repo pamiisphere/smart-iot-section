@@ -836,40 +836,60 @@
     #intro-screen {
       position: fixed; inset: 0; z-index: 99999;
       background: #fefbfb;
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       transition: opacity 0.8s ease;
+      /* iOS Safari full-height fix */
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      min-height: 100dvh;
     }
     #intro-screen.fade-out { opacity: 0; pointer-events: none; }
     #intro-screen.hidden { display: none; }
 
     #intro-video {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%); 
       width: 100%;
       height: 100%;
-      object-fit: cover; 
+      object-fit: cover;
       background-color: #fefbfb;
+      /* ensure it fills the fixed overlay on all screen sizes */
+      position: absolute;
+      top: 0; left: 0;
     }
 
-    @media (max-width: 768px) {
+    /* portrait phones — fit the full video vertically without cropping */
+    @media (max-width: 480px) and (orientation: portrait) {
       #intro-video {
         width: 100vw;
+        height: 100dvh;
+        height: 100vh; /* fallback */
+        object-fit: contain;
+        object-position: center center;
+      }
+    }
+
+    /* landscape phones — cover is fine, video fills the wide short frame */
+    @media (max-width: 900px) and (orientation: landscape) {
+      #intro-video {
+        width: 100vw;
+        height: 100dvh;
         height: 100vh;
-        object-fit: cover; 
+        object-fit: cover;
+        object-position: center center;
       }
     }
 
     .intro-skip-btn {
-      position: absolute; bottom: 36px; right: 36px;
+      position: absolute; bottom: max(24px, env(safe-area-inset-bottom, 24px)); right: 20px;
       display: flex; align-items: center; gap: 8px;
-      font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; letter-spacing: 2px;
+      font-family: 'Share Tech Mono', monospace; letter-spacing: 2px;
       padding: 10px 22px; border-radius: 6px; cursor: pointer;
       border: 1px solid rgba(0,180,255,0.4);
       background: rgba(0,180,255,0.1); color: #00b4ff;
       transition: all 0.2s;
       animation: pulse-skip 2s ease-in-out infinite;
+      font-size: clamp(0.6rem, 2vw, 0.72rem);
     }
     .intro-skip-btn:hover { background: rgba(0,180,255,0.25); border-color: #00b4ff; animation: none; }
     @keyframes pulse-skip {
